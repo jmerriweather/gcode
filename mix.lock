@@ -1,0 +1,6 @@
+%{
+  "elixir_make": {:hex, :elixir_make, "0.4.1", "6628b86053190a80b9072382bb9756a6c78624f208ec0ff22cb94c8977d80060", [:mix], [], "hexpm"},
+  "gen_state_machine": {:hex, :gen_state_machine, "2.0.2", "52abcba0981a058940c2a9b33b704e126d808418a6e85d45fa466d7450a90381", [:mix], [], "hexpm"},
+  "lz_string": {:hex, :lz_string, "0.0.7", "625937fed589a7514d475b2396a81cbd54a3fab47764e57a9a6eac6784f86b24", [:mix], [], "hexpm"},
+  "nerves_uart": {:hex, :nerves_uart, "1.2.0", "195424116b925cd3bf9d666be036c2a80655e6ca0f8d447e277667a60005c50e", [:mix], [{:elixir_make, "~> 0.4", [hex: :elixir_make, repo: "hexpm", optional: false]}], "hexpm"},
+}
