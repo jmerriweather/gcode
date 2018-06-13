@@ -11,7 +11,7 @@ defmodule Gcode.Machine.Parsing do
 
   defp extract_commands([head | rest], acc, count) do
     [instruction | parameters] = String.split(head)
-    extract_commands(rest, [%GcodeCommand{instruction: instruction, parameters: extract_parameters(parameters, %{})} | acc], count + 1)
+    extract_commands(rest, [%GcodeCommand{instruction: instruction, parameters: extract_parameters(parameters, %{}), raw: head} | acc], count + 1)
   end
   defp extract_commands([], acc, count), do: {count, Enum.reverse(acc)}
 
@@ -19,7 +19,7 @@ defmodule Gcode.Machine.Parsing do
 
     {count, commands} = extract_commands(sanitised_gcode, [], 0)
 
-    {:next_state, :analysing, %{data | gcode: %Gcode{commands: commands, command_count: count}}, [{:next_event, :internal, :analyse}]}
+    {:next_state, :analysing, %{data | gcode: %Gcode{commands: commands, command_count: count}, gcode_commands: commands}, [{:next_event, :internal, :analyse}]}
   end
 
   def parsing({:call, from}, event, data) do

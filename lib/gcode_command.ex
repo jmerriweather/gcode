@@ -1,6 +1,7 @@
 defmodule GcodeCommand do
   defstruct [
     instruction: nil,
-    parameters: []
+    parameters: [],
+    raw: ""
   ]
 end

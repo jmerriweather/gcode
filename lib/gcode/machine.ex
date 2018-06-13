@@ -12,7 +12,8 @@ defmodule Gcode.Machine do
     state = %{
       uart_pid: nil,
       gcode: nil,
-      commands: []
+      gcode_commands: [],
+      extra_commands: []
     }
 
     with {:ok, pid} <- Nerves.UART.start_link(), :ok <- Nerves.UART.open(pid, port, speed: speed, active: true, framing: {Nerves.UART.Framing.Line, separator: "\n"}) do
@@ -27,4 +28,5 @@ defmodule Gcode.Machine do
   defdelegate parsing(type, event, data), to: Gcode.Machine.Parsing
   defdelegate sanitising(type, event, data), to: Gcode.Machine.Sanitising
   defdelegate analysing(type, event, data), to: Gcode.Machine.Analysing
+  defdelegate printing(type, event, data), to: Gcode.Machine.Printing
 end

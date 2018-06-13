@@ -44,7 +44,7 @@ defmodule Gcode.Machine.Analysing do
       0
     end
 
-    segmentLength = :math.sqrt(:math.pow(x, 2) + :math.pow(y, 2) + :math.pow(z, 2))
+    segmentLength = :math.sqrt(:math.pow(x, 2) + :math.pow(y, 2))
 
     duration = if segmentLength > 0 and mmPerSecond > 0 do
       segmentLength / mmPerSecond
@@ -81,7 +81,7 @@ defmodule Gcode.Machine.Analysing do
     deltaY = if y < existing_y, do: 0, else: y - existing_y
     deltaZ = if z < existing_z, do: 0, else: z - existing_z
 
-    new_duration = calculate_time(deltaX, deltaY, deltaZ, rate_of_acc(existing_speed, speed) * (existing_speed - speed))
+    new_duration = calculate_time(deltaX, deltaY, deltaZ, speed)
 
     #IO.puts(" #{inspect acc_duration}, new duration: #{inspect new_duration}, I: #{inspect instruction}, Coords: #{inspect coords}, params: #{inspect parameters}")
 
@@ -96,7 +96,7 @@ defmodule Gcode.Machine.Analysing do
     IO.puts("Duration: #{inspect duration}")
     IO.puts("Duration Minutes: #{inspect duration / 60}")
     IO.puts("Duration hours: #{inspect duration / 60 / 60}")
-    {:keep_state, %{data | gcode: %{gcode | estimated_print_time: 0}}}
+    {:next_state, :printing, %{data | gcode: %{gcode | estimated_print_time: duration}}, {:next_event, :internal, :print}}
   end
 
   def analysing({:call, from}, event, data) do

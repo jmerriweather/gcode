@@ -4,6 +4,8 @@ defmodule Gcode.Machine.Waiting do
   """
   require Logger
 
+  def waiting(:info, {:nerves_uart, port, status}, data), do: Gcode.Machine.Printing.printing(:info, {:nerves_uart, port, status}, data)
+
   def waiting({:call, from}, {:print, compressed_gcode}, data) do
     {:next_state, :decompressing, data, [{:reply, from, :ok}, {:next_event, :internal, {:decompress, compressed_gcode}}]}
   end
