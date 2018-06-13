@@ -51,7 +51,7 @@ defmodule Gcode.Machine.Printing do
         {:next_state, :printing, %{data | extra_commands: []}, {:next_event, :internal, :print}}
       {:error, error} ->
         Logger.error("Error processing command: #{inspect error}")
-        {:keep_state_and_data, {:timeout, 1000, :check_command}}
+        {:next_state, :error, %{data | error: error}}
     end
   end
 
@@ -63,7 +63,7 @@ defmodule Gcode.Machine.Printing do
         {:next_state, :printing, %{data | extra_commands: rest}, {:next_event, :internal, :print}}
       {:error, error} ->
         Logger.error("Error processing command: #{inspect error}")
-        {:keep_state_and_data, {:timeout, 1000, :check_command}}
+        {:next_state, :error, %{data | error: error}}
     end
   end
 

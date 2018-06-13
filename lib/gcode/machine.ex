@@ -13,7 +13,8 @@ defmodule Gcode.Machine do
       uart_pid: nil,
       gcode: nil,
       gcode_commands: [],
-      extra_commands: []
+      extra_commands: [],
+      error: nil
     }
 
     with {:ok, pid} <- Nerves.UART.start_link(), :ok <- Nerves.UART.open(pid, port, speed: speed, active: true, framing: {Nerves.UART.Framing.Line, separator: "\n"}) do
@@ -23,6 +24,7 @@ defmodule Gcode.Machine do
     end
   end
 
+  defdelegate error(type, event, data) to: Gcode.Machine.Error
   defdelegate waiting(type, event, data), to: Gcode.Machine.Waiting
   defdelegate decompressing(type, event, data), to: Gcode.Machine.Decompressing
   defdelegate parsing(type, event, data), to: Gcode.Machine.Parsing

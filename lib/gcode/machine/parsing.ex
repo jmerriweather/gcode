@@ -4,8 +4,14 @@ defmodule Gcode.Machine.Parsing do
   """
   require Logger
 
+
+  def parse_float(num) do
+    {result, _} = Float.parse(num)
+    result
+  end
+
   defp extract_parameters([<<letter::utf8, value::binary>> | rest], acc) do
-    extract_parameters(rest, Map.put(acc, <<letter>>, value))
+    extract_parameters(rest, Map.put(acc, <<letter>>, parse_float(value)))
   end
   defp extract_parameters([], acc), do: acc
 
