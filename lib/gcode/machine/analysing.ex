@@ -36,49 +36,66 @@ defmodule Gcode.Machine.Analysing do
 
   def process_parameters([], x, y, z, speed), do: {x, y, z, speed}
 
-  def estimate_print_time([%GcodeCommand{instruction: instruction, parameters: parameters} | rest], existing_x, existing_y, existing_z, acc_duration) do
-
-
-    with {x, y, z, speed} when (x > 0 or y > 0 or z > 0) and speed != 0 <- process_parameters(parameters, 0, 0, 0, 0) do
-      mmPerSecond = speed / 60
-      segmentLength = :math.sqrt(:math.pow(x - existing_x, 2) + :math.pow(y - existing_y, 2) + :math.pow(z - existing_z, 2))
-
-      duration = segmentLength / mmPerSecond
-      estimate_print_time(rest, x, y, z, acc_duration + duration)
+  def calculate_time(0, 0, 0, 0), do: 0
+  def calculate_time(x, y, z, speed) do
+    mmPerSecond = if speed > 0 do
+      speed / 60
     else
-      {x, y, z, speed} -> estimate_print_time(rest, x, y, z, acc_duration)
-      _ -> estimate_print_time(rest, existing_x, existing_y, existing_z, acc_duration)
+      0
     end
 
-    # movement = {new_x, new_y, new_z, speed} = process_parameters(parameters, 0, 0, 0, 0)
-    # IO.puts("Movement: #{inspect movement}")
-    # mmPerSecond = if speed > 0 do
-    #   speed / 60
-    # else
-    #   0
-    # end
+    segmentLength = :math.sqrt(:math.pow(x, 2) + :math.pow(y, 2) + :math.pow(z, 2))
 
-    # deltaX = new_x - x
-    # deltaY = new_y - y
-    # deltaZ = new_z - z
+    duration = if segmentLength > 0 and mmPerSecond > 0 do
+      segmentLength / mmPerSecond
+    else
+      0
+    end
 
-    # segmentLength = :math.sqrt(:math.pow(deltaX, 2) + :math.pow(deltaY, 2) + :math.pow(deltaZ, 2))
-
-    # new_duration = if segmentLength > 0 && mmPerSecond > 0 do
-    #   segmentLength / mmPerSecond
-    # else
-    #   0
-    # end
-
-    # estimate_print_time(rest, new_x, new_y, new_z, duration + new_duration)
+    duration
   end
-  def estimate_print_time([], _, _, _, duration), do: duration
+
+  def parse_float(num) do
+    {result, _} = Float.parse(num)
+    result
+  end
+
+  def rate_of_acc(0, _), do: 0.5
+  def rate_of_acc(_, 0), do: 0.5
+  def rate_of_acc(existing_speed, speed) do
+    if existing_speed > speed, do: speed / existing_speed, else: existing_speed / speed
+  end
+
+  def estimate_print_time([%GcodeCommand{instruction: instruction, parameters: parameters} | rest], existing_x, existing_y, existing_z, existing_speed, acc_duration) do
+    {x, y, z, speed} = coords = case parameters do
+        %{"X" => x, "Y" => y, "Z" => z, "F" => speed} -> {parse_float(x), parse_float(y), parse_float(z), parse_float(speed)}
+        %{"X" => x, "Y" => y, "Z" => z} -> {parse_float(x), parse_float(y), parse_float(z), existing_speed}
+        %{"X" => x, "Y" => y, "F" => speed} -> {parse_float(x), parse_float(y), 0, parse_float(speed)}
+        %{"X" => x, "Y" => y} -> {parse_float(x), parse_float(y), 0, existing_speed}
+        %{"Z" => z, "F" => speed} -> {0, 0, parse_float(z), speed}
+        %{"Z" => z} -> {0, 0, parse_float(z), existing_speed}
+        _ -> {0, 0, 0, existing_speed}
+      end
+
+    deltaX = if x < existing_x, do: 0, else: x - existing_x
+    deltaY = if y < existing_y, do: 0, else: y - existing_y
+    deltaZ = if z < existing_z, do: 0, else: z - existing_z
+
+    new_duration = calculate_time(deltaX, deltaY, deltaZ, rate_of_acc(existing_speed, speed) * (existing_speed - speed))
+
+    #IO.puts(" #{inspect acc_duration}, new duration: #{inspect new_duration}, I: #{inspect instruction}, Coords: #{inspect coords}, params: #{inspect parameters}")
+
+    estimate_print_time(rest, x, y, z, speed, acc_duration + new_duration)
+  end
+  def estimate_print_time([], _, _, _, _, duration), do: duration
 
   def analysing(:internal, :analyse, data = %{gcode: gcode = %{commands: commands}}) do
     IO.puts("Analysing: #{inspect commands}")
 
-    #duration = estimate_print_time(commands, 0, 0, 0, 0)
-    IO.puts("Duration: #{inspect 0}")
+    duration = estimate_print_time(commands, 0, 0, 0, 0, 0)
+    IO.puts("Duration: #{inspect duration}")
+    IO.puts("Duration Minutes: #{inspect duration / 60}")
+    IO.puts("Duration hours: #{inspect duration / 60 / 60}")
     {:keep_state, %{data | gcode: %{gcode | estimated_print_time: 0}}}
   end
 
