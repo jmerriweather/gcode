@@ -20,7 +20,7 @@ defmodule Gcode.Machine.Printing do
     with :ok <- Nerves.UART.write(pid, command) do
       case command do
         "M77" -> {:ok, :print_finished}
-        command -> {:ok, :continue}
+        _ -> {:ok, :continue}
       end
     else
       {:error, error} -> {:error, error}
@@ -71,22 +71,22 @@ defmodule Gcode.Machine.Printing do
     {:keep_state_and_data, {:next_event, :internal, :print}}
   end
 
-  def printing(:info, {:nerves_uart, port, status}, %{extra_commands: [], gcode_commands: []}) do
+  def printing(:info, {:nerves_uart, _port, status}, %{extra_commands: [], gcode_commands: []}) do
     IO.puts("Status: #{inspect status}")
     :keep_state_and_data
   end
 
-  def printing(:info, {:nerves_uart, port, "ok"}, data) do
+  def printing(:info, {:nerves_uart, _port, "ok"}, _data) do
     IO.puts("Response: OK")
     {:keep_state_and_data, {:timeout, 0, :check_command}}
   end
 
-  def printing(:info, {:nerves_uart, port, <<"ok ", command::bits>>}, data) do
+  def printing(:info, {:nerves_uart, _port, <<"ok ", command::bits>>}, _data) do
     IO.puts("Response: #{inspect command}")
     {:keep_state_and_data, {:timeout, 0, :check_command}}
   end
 
-  def printing(:info, {:nerves_uart, port, status}, data) do
+  def printing(:info, {:nerves_uart, _port, status}, _data) do
     IO.puts("Status: #{inspect status}")
     :keep_state_and_data
   end

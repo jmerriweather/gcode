@@ -24,7 +24,7 @@ defmodule Gcode.Machine do
     end
   end
 
-  defdelegate error(type, event, data) to: Gcode.Machine.Error
+  defdelegate error(type, event, data), to: Gcode.Machine.Error
   defdelegate waiting(type, event, data), to: Gcode.Machine.Waiting
   defdelegate decompressing(type, event, data), to: Gcode.Machine.Decompressing
   defdelegate parsing(type, event, data), to: Gcode.Machine.Parsing
