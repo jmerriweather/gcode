@@ -10,6 +10,10 @@ defmodule Gcode.Machine.Waiting do
     {:next_state, :decompressing, data, [{:reply, from, :ok}, {:next_event, :internal, {:decompress, compressed_gcode}}]}
   end
 
+  def waiting(:cast, {:command, command}, data = %{extra_commands: extra_commands}) do
+    {:next_state, :printing, %{data | extra_commands: [command | extra_commands]}, {:next_event, :internal, :check_command}}
+  end
+
   def waiting({:call, from}, event, data) do
     Logger.warn("#{inspect __MODULE__} - Unhandled call from #{inspect from}, name: #{inspect event}, data: #{inspect data}")
     {:keep_state_and_data, {:reply, from, {:error, :unknown_call}}}

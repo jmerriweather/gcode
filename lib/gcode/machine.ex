@@ -24,6 +24,16 @@ defmodule Gcode.Machine do
     end
   end
 
+  def send_command(command) do
+    with {1, [parsed_command]} <- Gcode.Machine.Parsing.extract_commands([command], [], 0) do
+      GenStateMachine.cast(__MODULE__, {:command, parsed_command})
+    end
+  end
+
+  def print(compressed_gcode) do
+    GenStateMachine.call(__MODULE__, {:print, compressed_gcode})
+  end
+
   defdelegate error(type, event, data), to: Gcode.Machine.Error
   defdelegate waiting(type, event, data), to: Gcode.Machine.Waiting
   defdelegate decompressing(type, event, data), to: Gcode.Machine.Decompressing

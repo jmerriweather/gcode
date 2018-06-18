@@ -28,6 +28,11 @@ defmodule Gcode.Machine.Printing do
     end
   end
 
+
+  def printing(:cast, {:command, command}, data = %{extra_commands: extra_commands}) do
+    {:keep_state, %{data | extra_commands: [command | extra_commands]}}
+  end
+
   # Last command
   def printing(:internal, :print, data = %{uart_pid: pid, gcode_commands: [%{raw: command} | []]}) do
 
@@ -43,47 +48,61 @@ defmodule Gcode.Machine.Printing do
     {:keep_state, %{data | gcode_commands: rest}}
   end
 
-  def printing(:timeout, :check_command, data = %{uart_pid: pid, extra_commands: [%{raw: command} | []]}) do
+  def printing(:internal, :print, data = %{uart_pid: pid, gcode_commands: []}) do
+    {:next_state, :waiting, data}
+  end
+
+  def printing(:internal, :check_command, data = %{uart_pid: pid, extra_commands: [%{raw: command} | []]}) do
     case process_command(pid, command) do
       {:ok, :print_finished} ->
         {:next_state, :waiting, %{data | gcode_commands: []}}
       {:ok, :continue} ->
-        {:next_state, :printing, %{data | extra_commands: []}, {:next_event, :internal, :print}}
+        {:next_state, :printing, %{data | extra_commands: []}}
       {:error, error} ->
         Logger.error("Error processing command: #{inspect error}")
         {:next_state, :error, %{data | error: error}}
     end
   end
 
-  def printing(:timeout, :check_command, data = %{uart_pid: pid, extra_commands: [%{raw: command} | rest]}) do
+  def printing(:internal, :check_command, data = %{uart_pid: pid, extra_commands: [%{raw: command} | rest]}) do
     case process_command(pid, command) do
       {:ok, :print_finished} ->
         {:next_state, :waiting, %{data | gcode_commands: []}}
       {:ok, :continue} ->
-        {:next_state, :printing, %{data | extra_commands: rest}, {:next_event, :internal, :print}}
+        {:next_state, :printing, %{data | extra_commands: rest}}
       {:error, error} ->
         Logger.error("Error processing command: #{inspect error}")
         {:next_state, :error, %{data | error: error}}
     end
   end
 
-  def printing(:timeout, :check_command,  _data) do
+  def printing(:internal, :check_command,  _data) do
     {:keep_state_and_data, {:next_event, :internal, :print}}
   end
 
-  def printing(:info, {:nerves_uart, _port, status}, %{extra_commands: [], gcode_commands: []}) do
+  def printing(:info, {:nerves_uart, _port, status}, data = %{extra_commands: [], gcode_commands: []}) do
     IO.puts("Status: #{inspect status}")
-    :keep_state_and_data
+    {:next_state, :waiting, data}
+  end
+
+  def printing(:info, {:nerves_uart, _port, "ok"}, %{gcode_commands: [_ | _]}) do
+    IO.puts("Response: OK")
+    {:keep_state_and_data, {:next_event, :internal, :check_command}}
+  end
+
+  def printing(:info, {:nerves_uart, _port, <<"ok ", command::bits>>}, %{gcode_commands: [_ | _]}) do
+    IO.puts("Response: #{inspect command}")
+    {:keep_state_and_data, {:next_event, :internal, :check_command}}
   end
 
   def printing(:info, {:nerves_uart, _port, "ok"}, _data) do
     IO.puts("Response: OK")
-    {:keep_state_and_data, {:timeout, 0, :check_command}}
+    {:keep_state_and_data, {:next_event, :internal, :print}}
   end
 
   def printing(:info, {:nerves_uart, _port, <<"ok ", command::bits>>}, _data) do
     IO.puts("Response: #{inspect command}")
-    {:keep_state_and_data, {:timeout, 0, :check_command}}
+    {:keep_state_and_data, {:next_event, :internal, :print}}
   end
 
   def printing(:info, {:nerves_uart, _port, status}, _data) do
