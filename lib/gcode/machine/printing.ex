@@ -81,32 +81,32 @@ defmodule Gcode.Machine.Printing do
   end
 
   def printing(:info, {:nerves_uart, _port, status}, data = %{extra_commands: [], gcode_commands: []}) do
-    IO.puts("Status: #{inspect status}")
+    handle_status(status)
     {:next_state, :waiting, data}
   end
 
   def printing(:info, {:nerves_uart, _port, "ok"}, %{gcode_commands: [_ | _]}) do
-    IO.puts("Response: OK")
+    handle_response("OK")
     {:keep_state_and_data, {:next_event, :internal, :check_command}}
   end
 
   def printing(:info, {:nerves_uart, _port, <<"ok ", command::bits>>}, %{gcode_commands: [_ | _]}) do
-    IO.puts("Response: #{inspect command}")
+    handle_response(command)
     {:keep_state_and_data, {:next_event, :internal, :check_command}}
   end
 
   def printing(:info, {:nerves_uart, _port, "ok"}, _data) do
-    IO.puts("Response: OK")
+    handle_response("OK")
     {:keep_state_and_data, {:next_event, :internal, :print}}
   end
 
   def printing(:info, {:nerves_uart, _port, <<"ok ", command::bits>>}, _data) do
-    IO.puts("Response: #{inspect command}")
+    handle_response(command)
     {:keep_state_and_data, {:next_event, :internal, :print}}
   end
 
   def printing(:info, {:nerves_uart, _port, status}, _data) do
-    IO.puts("Status: #{inspect status}")
+    handle_status(status)
     :keep_state_and_data
   end
 
@@ -118,5 +118,13 @@ defmodule Gcode.Machine.Printing do
   def printing(type, event, data) do
     Logger.warn("#{inspect __MODULE__} - Unhandled event, type: #{inspect type}, name: #{inspect event}, data: #{inspect data}")
     :keep_state_and_data
+  end
+
+  def handle_status(status_message) do
+    IO.puts("Status: #{inspect status_message}")
+  end
+
+  def handle_response(response_message) do
+    IO.puts("Response: #{inspect response_message}")
   end
 end
