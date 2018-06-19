@@ -23,7 +23,9 @@ defmodule Gcode.Machine.Analysing do
     duration
   end
 
-  def estimate_print_time([%GcodeCommand{instruction: instruction, parameters: parameters} | rest], existing_x, existing_y, existing_z, existing_speed, acc_duration) do
+  def estimate_print_time(gcode = %{command_count: count, commands: commands}, existing_x, existing_y, existing_z, existing_speed, acc_duration, index) when index < count do
+    %GcodeCommand{instruction: instruction, parameters: parameters} = Map.fetch!(commands, index)
+
     {x, y, z, speed} = coords = case parameters do
         %{"X" => x, "Y" => y, "Z" => z, "F" => speed} -> {x, y, z, speed}
         %{"X" => x, "Y" => y, "Z" => z} -> {x, y, z, 0}
@@ -42,14 +44,13 @@ defmodule Gcode.Machine.Analysing do
 
     #IO.puts(" #{inspect acc_duration}, new duration: #{inspect new_duration}, I: #{inspect instruction}, Coords: #{inspect coords}, params: #{inspect parameters}")
 
-    estimate_print_time(rest, x, y, z, speed, acc_duration + new_duration)
+    estimate_print_time(gcode, x, y, z, speed, acc_duration + new_duration, index + 1)
   end
-  def estimate_print_time([], _, _, _, _, duration), do: duration
+  def estimate_print_time(%{}, _, _, _, _, duration, _), do: duration
 
-  def analysing(:internal, :analyse, data = %{gcode: gcode = %{commands: commands}}) do
-    IO.puts("Analysing: #{inspect commands}")
+  def analysing(:internal, :analyse, data = %{gcode: gcode}) do
 
-    duration = estimate_print_time(commands, 0, 0, 0, 0, 0)
+    duration = estimate_print_time(gcode, 0, 0, 0, 0, 0, 0)
     IO.puts("Duration: #{inspect duration}")
     IO.puts("Duration Minutes: #{inspect duration / 60}")
     IO.puts("Duration hours: #{inspect duration / 60 / 60}")

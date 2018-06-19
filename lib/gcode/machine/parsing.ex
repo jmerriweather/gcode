@@ -17,15 +17,15 @@ defmodule Gcode.Machine.Parsing do
 
   def extract_commands([head | rest], acc, count) do
     [instruction | parameters] = String.split(head)
-    extract_commands(rest, [%GcodeCommand{instruction: instruction, parameters: extract_parameters(parameters, %{}), raw: head} | acc], count + 1)
+    extract_commands(rest, Map.put(acc, count, %GcodeCommand{instruction: instruction, parameters: extract_parameters(parameters, %{}), raw: head}), count + 1)
   end
-  def extract_commands([], acc, count), do: {count, Enum.reverse(acc)}
+  def extract_commands([], acc, count), do: {count, acc}
 
   def parsing(:internal, {:parse, sanitised_gcode}, data) do
 
-    {count, commands} = extract_commands(sanitised_gcode, [], 0)
+    {count, commands} = extract_commands(sanitised_gcode, %{}, 0)
 
-    {:next_state, :analysing, %{data | gcode: %Gcode{commands: commands, command_count: count}, gcode_commands: commands}, [{:next_event, :internal, :analyse}]}
+    {:next_state, :analysing, %{data | gcode: %Gcode{commands: commands, command_count: count}}, [{:next_event, :internal, :analyse}]}
   end
 
   def parsing({:call, from}, event, data) do

@@ -4,7 +4,8 @@ defmodule Gcode do
   """
   defstruct [
     filename: nil,
-    commands: [],
+    commands: %{},
+    command_index: 0,
     command_count: 0,
     estimated_print_time: nil
   ]

@@ -1,5 +1,5 @@
 defmodule Gcode.Machine do
-  use GenStateMachine
+  use GenStateMachine, callback_mode: [:handle_event_function, :state_enter]
 
   def start_link(options) do
     GenStateMachine.start_link(__MODULE__, options, name: __MODULE__)
@@ -14,7 +14,6 @@ defmodule Gcode.Machine do
       name: name,
       uart_pid: nil,
       gcode: nil,
-      gcode_commands: [],
       extra_commands: [],
       error: nil
     }
@@ -28,7 +27,7 @@ defmodule Gcode.Machine do
   end
 
   def send_command(command) do
-    with {1, [parsed_command]} <- Gcode.Machine.Parsing.extract_commands([command], [], 0) do
+    with {1, %{0 => parsed_command}} <- Gcode.Machine.Parsing.extract_commands([command], %{}, 0) do
       GenStateMachine.cast(__MODULE__, {:command, parsed_command})
     end
   end
@@ -37,9 +36,14 @@ defmodule Gcode.Machine do
     GenStateMachine.call(__MODULE__, {:print, compressed_gcode})
   end
 
-  def handle_event(type, event, state, data = %{name: name}) do
-    Phoenix.Tracker.update(Gcode.Tracker, self(), "printers", name, fn meta -> Map.put(meta, :state, state) end)
+  def handle_event(:enter, old_state, new_state, %{name: name}) when old_state !== new_state do
+    Phoenix.Tracker.update(Gcode.Tracker, self(), "printers", name, fn meta -> Map.put(meta, :state, new_state) end)
+    :keep_state_and_data
+  end
 
+  def handle_event(:enter, _, _, _), do: :keep_state_and_data
+
+  def handle_event(type, event, state, data) do
     apply(Gcode.Machine, state, [type, event, data])
   end
 
