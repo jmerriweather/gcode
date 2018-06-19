@@ -10,6 +10,9 @@ defmodule Gcode.Machine.Parsing do
     result
   end
 
+  defp extract_parameters([<<letter::utf8, "">> | rest], acc) do
+    extract_parameters(rest, Map.put(acc, <<letter>>, ""))
+  end
   defp extract_parameters([<<letter::utf8, value::binary>> | rest], acc) do
     extract_parameters(rest, Map.put(acc, <<letter>>, parse_float(value)))
   end

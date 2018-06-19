@@ -16,6 +16,7 @@ defmodule Gcode.Machine.Printing do
           |> Map.put(:last_index, index)
           |> Map.put(:last_count, count)
       end)
+      :ok
     else
       {:error, error} -> {:error, error}
       error -> {:error, error}
@@ -157,12 +158,14 @@ defmodule Gcode.Machine.Printing do
   end
 
   def handle_status(name, status_message) do
-    Phoenix.Tracker.update(Gcode.Tracker, self(), "printers", name, fn meta -> Map.put(meta, :last_status, String.trim(status_message)) end)
+    trimmed = String.trim(status_message)
+    Phoenix.Tracker.update(Gcode.Tracker, self(), "printers", name, fn meta -> Map.put(meta, :last_status, trimmed) end)
     IO.puts("Status: #{inspect status_message}")
   end
 
   def handle_response(name, response_message) do
-    Phoenix.Tracker.update(Gcode.Tracker, self(), "printers", name, fn meta -> Map.put(meta, :last_response, String.trim(response_message)) end)
+    trimmed = String.trim(response_message)
+    Phoenix.Tracker.update(Gcode.Tracker, self(), "printers", name, fn meta -> Map.put(meta, :last_response, trimmed) end)
     IO.puts("Response: #{inspect response_message}")
   end
 end
