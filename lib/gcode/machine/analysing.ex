@@ -5,7 +5,7 @@ defmodule Gcode.Machine.Analysing do
   require Logger
 
   def calculate_time(0, 0, 0, 0), do: 0
-  def calculate_time(x, y, z, speed) do
+  def calculate_time(x, y, _z, speed) do
     mmPerSecond = if speed > 0 do
       speed / 60
     else
@@ -23,10 +23,10 @@ defmodule Gcode.Machine.Analysing do
     duration
   end
 
-  def estimate_print_time(gcode = %{command_count: count, commands: commands}, existing_x, existing_y, existing_z, existing_speed, acc_duration, index) when index < count do
-    %GcodeCommand{instruction: instruction, parameters: parameters} = Map.fetch!(commands, index)
+  def estimate_print_time(gcode = %{command_count: count, commands: commands}, existing_x, existing_y, existing_z, _existing_speed, acc_duration, index) when index < count do
+    %GcodeCommand{instruction: _instruction, parameters: parameters} = Map.fetch!(commands, index)
 
-    {x, y, z, speed} = coords = case parameters do
+    {x, y, z, speed} = case parameters do
         %{"X" => x, "Y" => y, "Z" => z, "F" => speed} -> {x, y, z, speed}
         %{"X" => x, "Y" => y, "Z" => z} -> {x, y, z, 0}
         %{"X" => x, "Y" => y, "F" => speed} -> {x, y, 0, speed}
