@@ -6,6 +6,10 @@ defmodule Gcode.Tracker do
     GenServer.start_link(Phoenix.Tracker, [__MODULE__, opts, opts], name: __MODULE__)
   end
 
+  def child_spec(args) do
+    %{id: __MODULE__, type: :worker, start: {__MODULE__, :start_link, [args]}}
+  end
+
   def init(opts) do
     server = Keyword.fetch!(opts, :pubsub_server)
     {:ok, %{pubsub_server: server, node_name: Phoenix.PubSub.node_name(server)}}

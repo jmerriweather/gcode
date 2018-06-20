@@ -7,6 +7,10 @@ defmodule Gcode.Machine do
     GenStateMachine.start_link(__MODULE__, options, name: __MODULE__)
   end
 
+  def child_spec(options) do
+    %{id: __MODULE__, type: :worker, start: {__MODULE__, :start_link, [options]}}
+  end
+
   def init(external_options) do
     options = %{}
       |> Map.put(:port, nil)

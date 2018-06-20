@@ -6,7 +6,7 @@ defmodule Gcode.Machine.Connecting do
 
   def connecting(:internal, :connect, data = %{uart_options: %{port: port, speed: speed}}) do
     with {:ok, pid} <- Nerves.UART.start_link(), :ok <- Nerves.UART.open(pid, port, speed: speed, active: true, framing: {Nerves.UART.Framing.Line, separator: "\n"}) do
-      {:next_state, :connected, %{state | uart_pid: pid, error: nil}}
+      {:next_state, :connected, %{data | uart_pid: pid, error: nil}}
     else
       {:error, error} ->
         {:keep_state, %{data | error: error}, {:state_timeout, 5000, :reconnect}}
@@ -15,7 +15,7 @@ defmodule Gcode.Machine.Connecting do
     end
   end
 
-  def connecting(:state_timeout, :reconnect, data) do
+  def connecting(:state_timeout, :reconnect, _data) do
     {:keep_state_and_data, {:next_event, :internal, :connect}}
   end
 

@@ -4,7 +4,7 @@ defmodule Gcode.Machine.Initialising do
   """
   require Logger
 
-  def initialising(:internal, :find_port, data = %{uart_options: %{autoconnect: autoconnect}}) do
+  def initialising(:internal, :find_port, data = %{uart_options: options = %{autoconnect: autoconnect}}) do
     port_info = Nerves.UART.enumerate()
 
     if autoconnect do
