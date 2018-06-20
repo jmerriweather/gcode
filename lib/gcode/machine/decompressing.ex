@@ -1,6 +1,6 @@
 defmodule Gcode.Machine.Decompressing do
   @moduledoc """
-  Functions for when we are in the waiting state
+  Functions for when we are in the decompressing state
   """
   require Logger
 
@@ -10,13 +10,5 @@ defmodule Gcode.Machine.Decompressing do
     {:next_state, :sanitising, data, [{:next_event, :internal, {:sanitise, decompressed}}]}
   end
 
-  def decompressing({:call, from}, event, data) do
-    Logger.warn("#{inspect __MODULE__} - Unhandled call from #{inspect from}, name: #{inspect event}, data: #{inspect data}")
-    {:keep_state_and_data, {:reply, from, {:error, :unknown_call}}}
-  end
-
-  def decompressing(type, event, data) do
-    Logger.warn("#{inspect __MODULE__} - Unhandled event, type: #{inspect type}, name: #{inspect event}, data: #{inspect data}")
-    :keep_state_and_data
-  end
+  def decompressing(type, event, data), do: Gcode.Machine.Error.unknown(__MODULE__, type, event, data)
 end

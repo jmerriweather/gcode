@@ -1,6 +1,6 @@
 defmodule Gcode.Machine.Analysing do
   @moduledoc """
-  Functions for when we are in the waiting state
+  Functions for when we are in the analysing state
   """
   require Logger
 
@@ -58,13 +58,5 @@ defmodule Gcode.Machine.Analysing do
     {:next_state, :printing, %{data | gcode: %{gcode | estimated_print_time: duration}}, {:next_event, :internal, :print}}
   end
 
-  def analysing({:call, from}, event, data) do
-    Logger.warn("#{inspect __MODULE__} - Unhandled call from #{inspect from}, name: #{inspect event}, data: #{inspect data}")
-    {:keep_state_and_data, {:reply, from, {:error, :unknown_call}}}
-  end
-
-  def analysing(type, event, data) do
-    Logger.warn("#{inspect __MODULE__} - Unhandled event, type: #{inspect type}, name: #{inspect event}, data: #{inspect data}")
-    :keep_state_and_data
-  end
+  def analysing(type, event, data), do: Gcode.Machine.Error.unknown(__MODULE__, type, event, data)
 end

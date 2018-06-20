@@ -1,29 +1,43 @@
 defmodule Gcode.Machine do
   use GenStateMachine, callback_mode: [:handle_event_function, :state_enter]
 
+  require Logger
+
   def start_link(options) do
     GenStateMachine.start_link(__MODULE__, options, name: __MODULE__)
   end
 
-  def init(options) do
-    name = Keyword.fetch!(options, :name)
-    port = Keyword.fetch!(options, :port)
-    speed = Keyword.get(options, :speed, 115200)
+  def init(external_options) do
+    options = %{}
+      |> Map.put(:port, nil)
+      |> Map.put(:speed, 115200)
+      |> Map.put(:autoconnect, true)
+      |> Map.merge(external_options)
 
-    state = %{
+    name = Map.fetch!(options, :name)
+
+    data = %{
       name: name,
       uart_pid: nil,
+      uart_options: Map.take(options, [:port, :speed, :autoconnect]),
+      uart_ports: %{},
       gcode: nil,
       extra_commands: [],
       error: nil
     }
 
-    with {:ok, pid} <- Nerves.UART.start_link(), :ok <- Nerves.UART.open(pid, port, speed: speed, active: true, framing: {Nerves.UART.Framing.Line, separator: "\n"}) do
-      Phoenix.Tracker.track(Gcode.Tracker, self(), "printers", name, %{state: :waiting})
-      {:ok, :waiting, %{state | uart_pid: pid}}
+    # have we been passed in a static port to connect to?
+    {state, actions} = if is_nil(Map.fetch!(options, :port)) do
+      # if not then enter the initialising state, attempt to locate available ports and optionally auto connect
+      {:initialising, [{:next_event, :internal, :find_ports}]}
     else
-      _ -> {:stop, :invalid_uart}
+      # we have been given a port, enter connecting state with static port
+      {:connecting, [{:next_event, :internal, :connect}]}
     end
+
+    Phoenix.Tracker.track(Gcode.Tracker, self(), "printers", name, %{state: state})
+
+    {:ok, state, data, actions}
   end
 
   def send_command(command) do
@@ -43,15 +57,27 @@ defmodule Gcode.Machine do
 
   def handle_event(:enter, _, _, _), do: :keep_state_and_data
 
-  def handle_event(type, event, state, data) do
-    apply(Gcode.Machine, state, [type, event, data])
+  def handle_event({:call, from}, {:print, _}, state, _data) when state !== :connected do
+    Logger.warn("#{inspect __MODULE__} - Print command ignored, can only send the print command when the state is connected", state: state)
+    {:keep_state_and_data, {:reply, from, {:error, {:printer_busy, state}}}}
   end
 
+  def handle_event(:cast, {:command, _}, state, _data) when state !== :connected and state !== :printing do
+    Logger.warn("#{inspect __MODULE__} - Command ignored, can only send commands when the state is connected or printing", state: state)
+    :keep_state_and_data
+  end
+
+  def handle_event(type, event, state, data) do
+    apply(__MODULE__, state, [type, event, data])
+  end
+
+  defdelegate initialising(type, event, data), to: Gcode.Machine.Initialising
+  defdelegate connecting(type, event, data), to: Gcode.Machine.Connecting
   defdelegate error(type, event, data), to: Gcode.Machine.Error
-  defdelegate waiting(type, event, data), to: Gcode.Machine.Waiting
+  defdelegate connected(type, event, data), to: Gcode.Machine.Connected
   defdelegate decompressing(type, event, data), to: Gcode.Machine.Decompressing
-  defdelegate parsing(type, event, data), to: Gcode.Machine.Parsing
   defdelegate sanitising(type, event, data), to: Gcode.Machine.Sanitising
+  defdelegate parsing(type, event, data), to: Gcode.Machine.Parsing
   defdelegate analysing(type, event, data), to: Gcode.Machine.Analysing
   defdelegate printing(type, event, data), to: Gcode.Machine.Printing
 end

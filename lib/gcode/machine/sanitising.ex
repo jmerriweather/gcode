@@ -1,6 +1,6 @@
 defmodule Gcode.Machine.Sanitising do
   @moduledoc """
-  Functions for when we are in the waiting state
+  Functions for when we are in the sanitising state
   """
   require Logger
 
@@ -20,13 +20,5 @@ defmodule Gcode.Machine.Sanitising do
     {:next_state, :parsing, data, [{:next_event, :internal, {:parse, sanitised_gcode}}]}
   end
 
-  def sanitising({:call, from}, event, data) do
-    Logger.warn("#{inspect __MODULE__} - Unhandled call from #{inspect from}, name: #{inspect event}, data: #{inspect data}")
-    {:keep_state_and_data, {:reply, from, {:error, :unknown_call}}}
-  end
-
-  def sanitising(type, event, data) do
-    Logger.warn("#{inspect __MODULE__} - Unhandled event, type: #{inspect type}, name: #{inspect event}, data: #{inspect data}")
-    :keep_state_and_data
-  end
+  def sanitising(type, event, data), do: Gcode.Machine.Error.unknown(__MODULE__, type, event, data)
 end

@@ -53,7 +53,7 @@ defmodule Gcode.Machine.Printing do
   end
 
   def printing(:internal, :print, data = %{gcode: nil}) do
-    {:next_state, :waiting, data}
+    {:next_state, :connected, data}
   end
 
   def printing(:internal, :print, data = %{uart_pid: pid, name: name, gcode: gcode = %{command_index: index, command_count: count, commands: commands}}) when index < count do
@@ -69,13 +69,13 @@ defmodule Gcode.Machine.Printing do
   end
 
   def printing(:internal, :print, data = %{gcode: %{command_index: index, command_count: count}}) when index >= count do
-    {:next_state, :waiting, data}
+    {:next_state, :connected, data}
   end
 
   def printing(:internal, :check_command, data = %{uart_pid: pid, name: name, extra_commands: [%{raw: command} | []]}) do
     case process_command(pid, name, command) do
       {:ok, :print_finished} ->
-        {:next_state, :waiting, data}
+        {:next_state, :connected, data}
       {:ok, :continue} ->
         {:next_state, :printing, %{data | extra_commands: []}}
       {:error, error} ->
@@ -87,7 +87,7 @@ defmodule Gcode.Machine.Printing do
   def printing(:internal, :check_command, data = %{uart_pid: pid, name: name, extra_commands: [%{raw: command} | rest]}) do
     case process_command(pid, name, command) do
       {:ok, :print_finished} ->
-        {:next_state, :waiting, data}
+        {:next_state, :connected, data}
       {:ok, :continue} ->
         {:next_state, :printing, %{data | extra_commands: rest}}
       {:error, error} ->
@@ -111,7 +111,7 @@ defmodule Gcode.Machine.Printing do
       handle_status(name, status)
       :keep_state_and_data
     end
-    {:next_state, :waiting, data}
+    {:next_state, :connected, data}
   end
 
   def printing(:info, {:nerves_uart, _port, "ok"}, %{name: name, gcode: %{command_index: index, command_count: count}}) when index < count do
@@ -147,15 +147,7 @@ defmodule Gcode.Machine.Printing do
     end
   end
 
-  def printing({:call, from}, event, data) do
-    Logger.warn("#{inspect __MODULE__} - Unhandled call from #{inspect from}, name: #{inspect event}, data: #{inspect data}")
-    {:keep_state_and_data, {:reply, from, {:error, :unknown_call}}}
-  end
-
-  def printing(type, event, data) do
-    Logger.warn("#{inspect __MODULE__} - Unhandled event, type: #{inspect type}, name: #{inspect event}, data: #{inspect data}")
-    :keep_state_and_data
-  end
+  def printing(type, event, data), do: Gcode.Machine.Error.unknown(__MODULE__, type, event, data)
 
   def handle_status(name, status_message) do
     trimmed = String.trim(status_message)
