@@ -39,7 +39,7 @@ defmodule Gcode.Machine do
       {:connecting, [{:next_event, :internal, :connect}]}
     end
 
-    Phoenix.Tracker.track(Gcode.Tracker, self(), "printers", name, %{state: state})
+    Phoenix.Tracker.track(Gcode.Tracker, self(), "printers", name, %{printer_state: state})
 
     {:ok, state, data, actions}
   end
@@ -55,19 +55,19 @@ defmodule Gcode.Machine do
   end
 
   def handle_event(:enter, old_state, new_state, %{name: name}) when old_state !== new_state do
-    Phoenix.Tracker.update(Gcode.Tracker, self(), "printers", name, fn meta -> Map.put(meta, :state, new_state) end)
+    Phoenix.Tracker.update(Gcode.Tracker, self(), "printers", name, fn meta -> Map.put(meta, :printer_state, new_state) end)
     :keep_state_and_data
   end
 
   def handle_event(:enter, _, _, _), do: :keep_state_and_data
 
-  def handle_event({:call, from}, {:print, _}, state, _data) when state !== :connected do
-    Logger.warn("#{inspect __MODULE__} - Print command ignored, can only send the print command when the state is connected", state: state)
+  def handle_event({:call, from}, {:print, _}, state, _data) when state != :connected do
+    Logger.warn("#{inspect __MODULE__} - Print command ignored, can only send the print command when the state is connected", printer_state: state)
     {:keep_state_and_data, {:reply, from, {:error, {:printer_busy, state}}}}
   end
 
-  def handle_event(:cast, {:command, _}, state, _data) when state !== :connected and state !== :printing do
-    Logger.warn("#{inspect __MODULE__} - Command ignored, can only send commands when the state is connected or printing", state: state)
+  def handle_event(:cast, {:command, _}, state, _data) when state != :connected and state != :printing do
+    Logger.warn("#{inspect __MODULE__} - Command ignored, can only send commands when the state is connected or printing. State: #{inspect state}", printer_state: state)
     :keep_state_and_data
   end
 

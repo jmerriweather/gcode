@@ -4,12 +4,14 @@ defmodule Gcode.Machine.Printing do
   """
   require Logger
 
+  @timeout 2000
+
   def process_gcode(pid, name, index, count, command) do
     # Output info
     IO.puts("#{inspect command}")
 
     # Write command to printer
-    with :ok <- Nerves.UART.write(pid, command) do
+    with :ok <- Nerves.UART.write(pid, command, @timeout) do
       Phoenix.Tracker.update(Gcode.Tracker, self(), "printers", name, fn meta ->
         meta
           |> Map.put(:last_command, command)
@@ -28,7 +30,7 @@ defmodule Gcode.Machine.Printing do
     IO.puts("#{inspect command}")
 
     # Write command to printer
-    with :ok <- Nerves.UART.write(pid, command) do
+    with :ok <- Nerves.UART.write(pid, command, @timeout) do
       Phoenix.Tracker.update(Gcode.Tracker, self(), "printers", name, fn meta -> Map.put(meta, :last_command, command) end)
       case command do
         "M77" -> {:ok, :print_finished}
@@ -134,7 +136,7 @@ defmodule Gcode.Machine.Printing do
     {:keep_state_and_data, {:next_event, :internal, :print}}
   end
 
-  def printing(:info, {:nerves_uart, _port, status}, %{name: name}) do
+  def printing(:info, {:nerves_uart, _port, status}, %{name: name}) when is_binary(status) do
     if String.contains?(status, "ok ") do
       case String.split(status, "ok ", trim: true) do
         [command | []] -> handle_response(name, command)
@@ -145,6 +147,12 @@ defmodule Gcode.Machine.Printing do
       handle_status(name, status)
       :keep_state_and_data
     end
+  end
+
+  def printing(:info, {:nerves_uart, _port, {:error, error}}, data = %{uart_pid: pid, uart_options: options}) do
+    Nerves.UART.close(pid)
+
+    {:next_state, :error, %{data | uart_pid: nil, uart_options: Map.put(options, :port, nil)}, {:next_event, :internal, {:uart_error, error}}}
   end
 
   def printing(type, event, data), do: Gcode.Machine.Error.unknown(__MODULE__, type, event, data)

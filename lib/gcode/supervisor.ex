@@ -16,12 +16,11 @@ defmodule Gcode.Supervisor do
 
     pubsub_name = Map.get(config, :pubsub_name, Gcode.PubSub)
     tracker_name = Map.get(config, :tracker_name, Gcode.Tracker)
-    machine_options = Map.fetch!(config, :machine_options)
 
     children = [
-      {Phoenix.PubSub.PG2, name: pubsub_name},
-      {Gcode.Tracker, name: tracker_name, pubsub_server: pubsub_name},
-      {Gcode.Machine, machine_options}
+      {Phoenix.PubSub.PG2, [name: pubsub_name]},
+      {Gcode.Tracker, [name: tracker_name, pubsub_server: pubsub_name]},
+      {Gcode.Machine, config}
     ]
     Supervisor.init(children, opts)
   end

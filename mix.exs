@@ -25,7 +25,7 @@ defmodule Gcode.MixProject do
       {:nerves_uart, "~> 1.2"},
       {:gen_state_machine, "~> 2.0"},
       {:lz_string, "~> 0.0.7"},
-      {:phoenix_pubsub, "~> 1.0"}
+      {:phoenix_pubsub, github: "phoenixframework/phoenix_pubsub"}
     ]
   end
 end
