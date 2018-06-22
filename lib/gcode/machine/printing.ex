@@ -6,18 +6,19 @@ defmodule Gcode.Machine.Printing do
 
   @timeout 2000
 
-  def process_gcode(pid, name, index, count, command) do
+  def process_gcode(pid, name, tracker_name, index, count, command) do
     # Output info
-    IO.puts("#{inspect command}")
+    IO.puts("#{inspect(command)}")
 
     # Write command to printer
     with :ok <- Nerves.UART.write(pid, command, @timeout) do
-      Phoenix.Tracker.update(Gcode.Tracker, self(), "printers", name, fn meta ->
+      Phoenix.Tracker.update(tracker_name, self(), "printers", name, fn meta ->
         meta
-          |> Map.put(:last_command, command)
-          |> Map.put(:last_index, index)
-          |> Map.put(:last_count, count)
+        |> Map.put(:last_command, command)
+        |> Map.put(:last_index, index)
+        |> Map.put(:last_count, count)
       end)
+
       :ok
     else
       {:error, error} -> {:error, error}
@@ -25,13 +26,16 @@ defmodule Gcode.Machine.Printing do
     end
   end
 
-  def process_command(pid, name, command) do
+  def process_command(pid, name, tracker_name, command) do
     # Output info
-    IO.puts("#{inspect command}")
+    IO.puts("#{inspect(command)}")
 
     # Write command to printer
     with :ok <- Nerves.UART.write(pid, command, @timeout) do
-      Phoenix.Tracker.update(Gcode.Tracker, self(), "printers", name, fn meta -> Map.put(meta, :last_command, command) end)
+      Phoenix.Tracker.update(tracker_name, self(), "printers", name, fn meta ->
+        Map.put(meta, :last_command, command)
+      end)
+
       case command do
         "M77" -> {:ok, :print_finished}
         "M0" -> {:ok, :print_finished}
@@ -42,7 +46,6 @@ defmodule Gcode.Machine.Printing do
       error -> {:error, error}
     end
   end
-
 
   def printing(:cast, {:command, command}, data = %{extra_commands: extra_commands}) do
     {:keep_state, %{data | extra_commands: [command | extra_commands]}}
@@ -58,9 +61,19 @@ defmodule Gcode.Machine.Printing do
     {:next_state, :connected, data}
   end
 
-  def printing(:internal, :print, data = %{uart_pid: pid, name: name, gcode: gcode = %{command_index: index, command_count: count, commands: commands}}) when index < count do
+  def printing(
+        :internal,
+        :print,
+        data = %{
+          uart_pid: pid,
+          name: name,
+          tracker_name: tracker_name,
+          gcode: gcode = %{command_index: index, command_count: count, commands: commands}
+        }
+      )
+      when index < count do
     with %{raw: command} <- Map.fetch!(commands, index) do
-      with :ok <- process_gcode(pid, name, index, count, command) do
+      with :ok <- process_gcode(pid, name, tracker_name, index, count, command) do
         {:keep_state, %{data | gcode: %{gcode | command_index: index + 1}}}
       else
         error -> {:next_state, :error, %{data | error: error}}
@@ -70,102 +83,165 @@ defmodule Gcode.Machine.Printing do
     end
   end
 
-  def printing(:internal, :print, data = %{gcode: %{command_index: index, command_count: count}}) when index >= count do
+  def printing(:internal, :print, data = %{gcode: %{command_index: index, command_count: count}})
+      when index >= count do
     {:next_state, :connected, data}
   end
 
-  def printing(:internal, :check_command, data = %{uart_pid: pid, name: name, extra_commands: [%{raw: command} | []]}) do
-    case process_command(pid, name, command) do
+  def printing(
+        :internal,
+        :check_command,
+        data = %{
+          uart_pid: pid,
+          name: name,
+          tracker_name: tracker_name,
+          extra_commands: [%{raw: command} | []]
+        }
+      ) do
+    case process_command(pid, name, tracker_name, command) do
       {:ok, :print_finished} ->
         {:next_state, :connected, data}
+
       {:ok, :continue} ->
         {:next_state, :printing, %{data | extra_commands: []}}
+
       {:error, error} ->
-        Logger.error("Error processing command: #{inspect error}")
+        Logger.error("Error processing command: #{inspect(error)}")
         {:next_state, :error, %{data | error: error}}
     end
   end
 
-  def printing(:internal, :check_command, data = %{uart_pid: pid, name: name, extra_commands: [%{raw: command} | rest]}) do
-    case process_command(pid, name, command) do
+  def printing(
+        :internal,
+        :check_command,
+        data = %{
+          uart_pid: pid,
+          name: name,
+          tracker_name: tracker_name,
+          extra_commands: [%{raw: command} | rest]
+        }
+      ) do
+    case process_command(pid, name, tracker_name, command) do
       {:ok, :print_finished} ->
         {:next_state, :connected, data}
+
       {:ok, :continue} ->
         {:next_state, :printing, %{data | extra_commands: rest}}
+
       {:error, error} ->
-        Logger.error("Error processing command: #{inspect error}")
+        Logger.error("Error processing command: #{inspect(error)}")
         {:next_state, :error, %{data | error: error}}
     end
   end
 
-  def printing(:internal, :check_command,  _data) do
+  def printing(:internal, :check_command, _data) do
     {:keep_state_and_data, {:next_event, :internal, :print}}
   end
 
-  def printing(:info, {:nerves_uart, _port, status}, data = %{name: name, extra_commands: [], gcode: %{command_index: index, command_count: count}}) when index >= count do
+  def printing(
+        :info,
+        {:nerves_uart, _port, status},
+        data = %{
+          name: name,
+          tracker_name: tracker_name,
+          extra_commands: [],
+          gcode: %{command_index: index, command_count: count}
+        }
+      )
+      when index >= count do
     if String.contains?(status, "ok ") do
       case String.split(status, "ok ", trim: true) do
-        [command | []] -> handle_response(name, command)
-        [_ | command] -> handle_response(name, command)
+        [command | []] -> handle_response(name, tracker_name, command)
+        [_ | command] -> handle_response(name, tracker_name, command)
       end
+
       :keep_state_and_data
     else
-      handle_status(name, status)
+      handle_status(name, tracker_name, status)
       :keep_state_and_data
     end
+
     {:next_state, :connected, data}
   end
 
-  def printing(:info, {:nerves_uart, _port, "ok"}, %{name: name, gcode: %{command_index: index, command_count: count}}) when index < count do
-    handle_response(name, "OK")
+  def printing(:info, {:nerves_uart, _port, "ok"}, %{
+        name: name,
+        tracker_name: tracker_name,
+        gcode: %{command_index: index, command_count: count}
+      })
+      when index < count do
+    handle_response(name, tracker_name, "OK")
     {:keep_state_and_data, {:next_event, :internal, :check_command}}
   end
 
-  def printing(:info, {:nerves_uart, _port, "ok " <> command}, %{name: name, gcode: %{command_index: index, command_count: count}}) when index < count do
-    handle_response(name, command)
+  def printing(:info, {:nerves_uart, _port, "ok " <> command}, %{
+        name: name,
+        tracker_name: tracker_name,
+        gcode: %{command_index: index, command_count: count}
+      })
+      when index < count do
+    handle_response(name, tracker_name, command)
     {:keep_state_and_data, {:next_event, :internal, :check_command}}
   end
 
-  def printing(:info, {:nerves_uart, _port, "ok"}, %{name: name}) do
-    handle_response(name, "OK")
+  def printing(:info, {:nerves_uart, _port, "ok"}, %{name: name, tracker_name: tracker_name}) do
+    handle_response(name, tracker_name, "OK")
     {:keep_state_and_data, {:next_event, :internal, :print}}
   end
 
-  def printing(:info, {:nerves_uart, _port, "ok " <> command}, %{name: name}) do
-    handle_response(name, command)
+  def printing(:info, {:nerves_uart, _port, "ok " <> command}, %{
+        name: name,
+        tracker_name: tracker_name
+      }) do
+    handle_response(name, tracker_name, command)
     {:keep_state_and_data, {:next_event, :internal, :print}}
   end
 
-  def printing(:info, {:nerves_uart, _port, status}, %{name: name}) when is_binary(status) do
+  def printing(:info, {:nerves_uart, _port, status}, %{name: name, tracker_name: tracker_name})
+      when is_binary(status) do
     if String.contains?(status, "ok ") do
       case String.split(status, "ok ", trim: true) do
-        [command | []] -> handle_response(name, command)
-        [_ | command] -> handle_response(name, command)
+        [command | []] -> handle_response(name, tracker_name, command)
+        [_ | command] -> handle_response(name, tracker_name, command)
       end
+
       {:keep_state_and_data, {:next_event, :internal, :print}}
     else
-      handle_status(name, status)
+      handle_status(name, tracker_name, status)
       :keep_state_and_data
     end
   end
 
-  def printing(:info, {:nerves_uart, _port, {:error, error}}, data = %{uart_pid: pid, uart_options: options}) do
+  def printing(
+        :info,
+        {:nerves_uart, _port, {:error, error}},
+        data = %{uart_pid: pid, uart_options: options}
+      ) do
     Nerves.UART.close(pid)
 
-    {:next_state, :error, %{data | uart_pid: nil, uart_options: Map.put(options, :port, nil)}, {:next_event, :internal, {:uart_error, error}}}
+    {:next_state, :error, %{data | uart_pid: nil, uart_options: Map.put(options, :port, nil)},
+     {:next_event, :internal, {:uart_error, error}}}
   end
 
   def printing(type, event, data), do: Gcode.Machine.Error.unknown(__MODULE__, type, event, data)
 
-  def handle_status(name, status_message) do
+  def handle_status(name, tracker_name, status_message) do
     trimmed = String.trim(status_message)
-    Phoenix.Tracker.update(Gcode.Tracker, self(), "printers", name, fn meta -> Map.put(meta, :last_status, trimmed) end)
-    IO.puts("Status: #{inspect status_message}")
+
+    Phoenix.Tracker.update(tracker_name, self(), "printers", name, fn meta ->
+      Map.put(meta, :last_status, trimmed)
+    end)
+
+    IO.puts("Status: #{inspect(status_message)}")
   end
 
-  def handle_response(name, response_message) do
+  def handle_response(name, tracker_name, response_message) do
     trimmed = String.trim(response_message)
-    Phoenix.Tracker.update(Gcode.Tracker, self(), "printers", name, fn meta -> Map.put(meta, :last_response, trimmed) end)
-    IO.puts("Response: #{inspect response_message}")
+
+    Phoenix.Tracker.update(tracker_name, self(), "printers", name, fn meta ->
+      Map.put(meta, :last_response, trimmed)
+    end)
+
+    IO.puts("Response: #{inspect(response_message)}")
   end
 end

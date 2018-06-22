@@ -12,16 +12,21 @@ defmodule Gcode.Machine do
   end
 
   def init(external_options) do
-    options = %{}
+    options =
+      %{}
       |> Map.put(:port, nil)
-      |> Map.put(:speed, 115200)
+      |> Map.put(:speed, 115_200)
       |> Map.put(:autoconnect, true)
       |> Map.merge(external_options)
 
     name = Map.fetch!(options, :name)
+    pubsub_name = Map.fetch!(options, :pubsub_name)
+    tracker_name = Map.fetch!(options, :tracker_name)
 
     data = %{
       name: name,
+      pubsub_name: pubsub_name,
+      tracker_name: tracker_name,
       uart_pid: nil,
       uart_options: Map.take(options, [:port, :speed, :autoconnect]),
       uart_ports: %{},
@@ -31,15 +36,16 @@ defmodule Gcode.Machine do
     }
 
     # have we been passed in a static port to connect to?
-    {state, actions} = if is_nil(Map.fetch!(options, :port)) do
-      # if not then enter the initialising state, attempt to locate available ports and optionally auto connect
-      {:initialising, [{:next_event, :internal, :find_ports}]}
-    else
-      # we have been given a port, enter connecting state with static port
-      {:connecting, [{:next_event, :internal, :connect}]}
-    end
+    {state, actions} =
+      if is_nil(Map.fetch!(options, :port)) do
+        # if not then enter the initialising state, attempt to locate available ports and optionally auto connect
+        {:initialising, [{:next_event, :internal, :find_ports}]}
+      else
+        # we have been given a port, enter connecting state with static port
+        {:connecting, [{:next_event, :internal, :connect}]}
+      end
 
-    Phoenix.Tracker.track(Gcode.Tracker, self(), "printers", name, %{printer_state: state})
+    Phoenix.Tracker.track(tracker_name, self(), "printers", name, %{printer_state: state})
 
     {:ok, state, data, actions}
   end
@@ -54,20 +60,35 @@ defmodule Gcode.Machine do
     GenStateMachine.call(__MODULE__, {:print, compressed_gcode})
   end
 
-  def handle_event(:enter, old_state, new_state, %{name: name}) when old_state !== new_state do
-    Phoenix.Tracker.update(Gcode.Tracker, self(), "printers", name, fn meta -> Map.put(meta, :printer_state, new_state) end)
+  def handle_event(:enter, old_state, new_state, %{name: name, tracker_name: tracker_name})
+      when old_state !== new_state do
+    Phoenix.Tracker.update(tracker_name, self(), "printers", name, fn meta ->
+      Map.put(meta, :printer_state, new_state)
+    end)
+
     :keep_state_and_data
   end
 
   def handle_event(:enter, _, _, _), do: :keep_state_and_data
 
   def handle_event({:call, from}, {:print, _}, state, _data) when state != :connected do
-    Logger.warn("#{inspect __MODULE__} - Print command ignored, can only send the print command when the state is connected", printer_state: state)
+    Logger.warn(
+      "#{inspect(__MODULE__)} - Print command ignored, can only send the print command when the state is connected",
+      printer_state: state
+    )
+
     {:keep_state_and_data, {:reply, from, {:error, {:printer_busy, state}}}}
   end
 
-  def handle_event(:cast, {:command, _}, state, _data) when state != :connected and state != :printing do
-    Logger.warn("#{inspect __MODULE__} - Command ignored, can only send commands when the state is connected or printing. State: #{inspect state}", printer_state: state)
+  def handle_event(:cast, {:command, _}, state, _data)
+      when state != :connected and state != :printing do
+    Logger.warn(
+      "#{inspect(__MODULE__)} - Command ignored, can only send commands when the state is connected or printing. State: #{
+        inspect(state)
+      }",
+      printer_state: state
+    )
+
     :keep_state_and_data
   end
 

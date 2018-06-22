@@ -5,7 +5,8 @@ defmodule Gcode.Machine.Sanitising do
   require Logger
 
   def sanitising(:internal, {:sanitise, decompressed}, data) do
-    sanitised_gcode = String.split(decompressed, ~r/\R/)
+    sanitised_gcode =
+      String.split(decompressed, ~r/\R/)
       # remove lines starting with a comment
       |> Stream.reject(&String.starts_with?(&1, [";"]))
       # remove comments from the end of lines
@@ -20,5 +21,6 @@ defmodule Gcode.Machine.Sanitising do
     {:next_state, :parsing, data, [{:next_event, :internal, {:parse, sanitised_gcode}}]}
   end
 
-  def sanitising(type, event, data), do: Gcode.Machine.Error.unknown(__MODULE__, type, event, data)
+  def sanitising(type, event, data),
+    do: Gcode.Machine.Error.unknown(__MODULE__, type, event, data)
 end

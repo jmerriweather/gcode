@@ -10,5 +10,6 @@ defmodule Gcode.Machine.Decompressing do
     {:next_state, :sanitising, data, [{:next_event, :internal, {:sanitise, decompressed}}]}
   end
 
-  def decompressing(type, event, data), do: Gcode.Machine.Error.unknown(__MODULE__, type, event, data)
+  def decompressing(type, event, data),
+    do: Gcode.Machine.Error.unknown(__MODULE__, type, event, data)
 end

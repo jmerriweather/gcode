@@ -22,6 +22,7 @@ defmodule Gcode.Supervisor do
       {Gcode.Tracker, [name: tracker_name, pubsub_server: pubsub_name]},
       {Gcode.Machine, config}
     ]
+
     Supervisor.init(children, opts)
   end
 end
