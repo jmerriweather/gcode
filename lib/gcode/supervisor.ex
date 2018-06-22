@@ -11,11 +11,17 @@ defmodule Gcode.Supervisor do
 
   @doc false
   @impl Supervisor
-  def init([config, opts]) do
+  def init([external_config, opts]) do
     opts = Keyword.put(opts, :strategy, :one_for_one)
 
-    pubsub_name = Map.get(config, :pubsub_name, Gcode.PubSub)
-    tracker_name = Map.get(config, :tracker_name, Gcode.Tracker)
+    config =
+      %{}
+      |> Map.put(:pubsub_name, Gcode.PubSub)
+      |> Map.put(:tracker_name, Gcode.Tracker)
+      |> Map.merge(external_config)
+
+    pubsub_name = Map.fetch!(config, :pubsub_name)
+    tracker_name = Map.fetch!(config, :tracker_name)
 
     children = [
       {Phoenix.PubSub.PG2, [name: pubsub_name]},
