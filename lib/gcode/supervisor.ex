@@ -14,8 +14,7 @@ defmodule Gcode.Supervisor do
   def init([external_config, opts]) do
     opts = Keyword.put(opts, :strategy, :one_for_one)
 
-    config =
-      %{}
+    config = %{}
       |> Map.put(:pubsub_name, Gcode.PubSub)
       |> Map.put(:tracker_name, Gcode.Tracker)
       |> Map.merge(external_config)
@@ -24,8 +23,8 @@ defmodule Gcode.Supervisor do
     tracker_name = Map.fetch!(config, :tracker_name)
 
     children = [
-      {Phoenix.PubSub.PG2, [name: pubsub_name]},
-      {Gcode.Tracker, [name: tracker_name, pubsub_server: pubsub_name]},
+      {Phoenix.PubSub.PG2, name: pubsub_name},
+      {Gcode.Tracker, name: tracker_name, pubsub_server: pubsub_name},
       {Gcode.Machine, config}
     ]
 
