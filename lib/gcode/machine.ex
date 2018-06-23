@@ -17,16 +17,19 @@ defmodule Gcode.Machine do
       |> Map.put(:port, nil)
       |> Map.put(:speed, 115_200)
       |> Map.put(:autoconnect, true)
+      |> Map.put(:decompression_handler, false)
       |> Map.merge(external_options)
 
     name = Map.fetch!(options, :name)
     pubsub_name = Map.fetch!(options, :pubsub_name)
     tracker_name = Map.fetch!(options, :tracker_name)
+    decompression_handler = Map.fetch!(options, :decompression_handler)
 
-    data = %{
+    data = %Gcode.Machine.State{
       name: name,
       pubsub_name: pubsub_name,
       tracker_name: tracker_name,
+      decompression_handler: decompression_handler,
       uart_pid: nil,
       uart_options: Map.take(options, [:port, :speed, :autoconnect]),
       uart_ports: %{},

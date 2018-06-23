@@ -4,8 +4,14 @@ defmodule Gcode.Machine.Decompressing do
   """
   require Logger
 
-  def decompressing(:internal, {:decompress, compressed_gcode}, data) do
-    decompressed = LZString.decompress(compressed_gcode)
+  # Decompression is disabled, go to next stage
+  def decompressing(:internal, {:decompress, compressed_gcode}, data = %{decompression_handler: false}) do
+    {:next_state, :sanitising, data, [{:next_event, :internal, {:sanitise, compressed_gcode}}]}
+  end
+
+  # Decompression has been defined
+  def decompressing(:internal, {:decompress, compressed_gcode}, data = %{decompression_handler: {module, function}}) do
+    decompressed = apply(module, function, compressed_gcode)
 
     {:next_state, :sanitising, data, [{:next_event, :internal, {:sanitise, decompressed}}]}
   end
