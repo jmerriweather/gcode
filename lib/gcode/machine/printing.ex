@@ -42,6 +42,18 @@ defmodule Gcode.Machine.Printing do
     {:keep_state, %{data | extra_commands: [command | extra_commands]}}
   end
 
+  def printing(:cast, :stop, data = %{gcode_handler: handler, gcode_handler_data: handler_data, gcode: %{command_index: index, command_count: count}}) do
+    with {:ok, command_list, handler_data} <- apply(handler, :handle_stop_print, [index, count, handler_data]),
+         {_, command_map} <- Gcode.Machine.Parsing.extract_commands(command_list, %{}, 0),
+         commands <- Map.values(command_map) do
+
+      {:keep_state, %{data | gcode: nil, extra_commands: commands, gcode_handler_data: handler_data}}
+    else
+      {:error, error} -> {:next_state, :error, %{data | error: error}}
+      error -> {:next_state, :error, %{data | error: error}}
+    end
+  end
+
   # Last command
 
   def printing(:internal, :print, %{gcode: nil, extra_commands: [_ | _]}) do

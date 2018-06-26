@@ -7,6 +7,16 @@ defmodule Gcode.Handler do
   """
   @callback handle_decompression(binary, map) :: {:ok, String.t, map} | {:skip, map} | {:error, term, map}
 
+
+  @doc """
+  Handle what commands are sent when stop print is executed
+
+  ```elixir
+  handle_stop_print(index, count, data)
+  ```
+  """
+  @callback handle_stop_print(number, number, map) :: {:ok, [String.t], map} | {:error, term, map}
+
   @doc """
   This function is called when the state of the Gcode State Machine has changed
   ```elixir
@@ -42,6 +52,17 @@ defmodule Gcode.Handler do
       @doc false
       def handle_decompression(_compressed_data, data) do
         {:skip, data}
+      end
+
+      @doc false
+      def handle_stop_print(index, count, data) do
+        commands = [
+          "M84",
+          "M104 S0",
+          "M106 S0",
+          "G28 X0 Y0"
+        ]
+        {:ok, commands, data}
       end
 
       @doc false
