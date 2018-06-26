@@ -6,9 +6,9 @@ defmodule Gcode.Machine.Initialising do
 
   def attempt_finding_ports(
         data = %{
-          name: name,
-          tracker_name: tracker_name,
-          uart_options: options = %{autoconnect: autoconnect}
+          uart_options: options = %{autoconnect: autoconnect},
+          gcode_handler: handler,
+          gcode_handler_data: gcode_handler_data
         }
       ) do
     port_info = Nerves.UART.enumerate()
@@ -24,24 +24,16 @@ defmodule Gcode.Machine.Initialising do
       else
         [{port_name, details}] = first_port
 
-        with %{description: description} <- details do
-          Phoenix.Tracker.update(tracker_name, self(), "printers", name, fn meta ->
-            Map.put(
-              meta,
-              :last_status,
-              "Found device on #{inspect(port_name)} with description #{inspect(description)}"
-            )
-          end)
-        else
-          _ ->
-            Phoenix.Tracker.update(tracker_name, self(), "printers", name, fn meta ->
-              Map.put(meta, :last_status, "Found device on #{inspect(port_name)}")
-            end)
-        end
 
-        {:next_state, :connecting,
-         %{data | uart_ports: port_info, uart_options: Map.put(options, :port, port_name)},
-         {:next_event, :internal, :connect}}
+        {:ok, gcode_handler_data} =
+          with %{description: description} <- details do
+            apply(handler, :handle_message, [{:status, "Found device on #{inspect(port_name)} with description #{inspect(description)}"}, gcode_handler_data])
+          else
+            _ ->
+              apply(handler, :handle_message, [{:status, "Found device on #{inspect(port_name)}"}, gcode_handler_data])
+          end
+
+        {:next_state, :connecting, %{data | uart_ports: port_info, uart_options: Map.put(options, :port, port_name), gcode_handler_data: gcode_handler_data}, {:next_event, :internal, :connect}}
       end
     else
       {:keep_state, %{data | uart_ports: port_info}}

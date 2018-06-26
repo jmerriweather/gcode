@@ -12,26 +12,19 @@ defmodule Gcode.Machine.Connecting do
         :internal,
         :connect,
         data = %{
-          name: name,
-          tracker_name: tracker_name,
           uart_options: %{port: port, speed: speed},
-          uart_ports: uart_ports
+          uart_ports: uart_ports,
+          gcode_handler: handler,
+          gcode_handler_data: gcode_handler_data
         }
       ) do
-    with %{^port => %{description: description}} <- uart_ports do
-      Phoenix.Tracker.update(tracker_name, self(), "printers", name, fn meta ->
-        Map.put(
-          meta,
-          :last_status,
-          "About to connect to device on #{inspect(port)} with description #{inspect(description)}"
-        )
-      end)
-    else
-      _ ->
-        Phoenix.Tracker.update(tracker_name, self(), "printers", name, fn meta ->
-          Map.put(meta, :last_status, "About to connect to device on #{inspect(port)}")
-        end)
-    end
+    {:ok, gcode_handler_data} =
+      with %{^port => %{description: description}} <- uart_ports do
+        apply(handler, :handle_message, [{:status, "About to connect to device on #{inspect(port)} with description #{inspect(description)}"}, gcode_handler_data])
+      else
+        _ ->
+          apply(handler, :handle_message, [{:status, "About to connect to device on #{inspect(port)}"}, gcode_handler_data])
+      end
 
     with {:ok, pid} <- Nerves.UART.start_link(),
          :ok <-
@@ -42,13 +35,13 @@ defmodule Gcode.Machine.Connecting do
              active: true,
              framing: {Nerves.UART.Framing.Line, separator: "\n"}
            ) do
-      {:next_state, :connected, %{data | uart_pid: pid, error: nil}}
+      {:next_state, :connected, %{data | uart_pid: pid, error: nil, gcode_handler_data: gcode_handler_data}}
     else
       {:error, error} ->
-        {:keep_state, %{data | error: error}, {:state_timeout, 5000, :reconnect}}
+        {:keep_state, %{data | error: error, gcode_handler_data: gcode_handler_data}, {:state_timeout, 5000, :reconnect}}
 
       error ->
-        {:keep_state, %{data | error: error}, {:state_timeout, 5000, :reconnect}}
+        {:keep_state, %{data | error: error, gcode_handler_data: gcode_handler_data}, {:state_timeout, 5000, :reconnect}}
     end
   end
 

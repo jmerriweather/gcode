@@ -17,19 +17,17 @@ defmodule Gcode.Machine do
       |> Map.put(:port, nil)
       |> Map.put(:speed, 115_200)
       |> Map.put(:autoconnect, true)
-      |> Map.put(:decompression_handler, false)
+      |> Map.put(:gcode_handler, Gcode.DefaultHandler)
       |> Map.merge(external_options)
 
     name = Map.fetch!(options, :name)
-    pubsub_name = Map.fetch!(options, :pubsub_name)
-    tracker_name = Map.fetch!(options, :tracker_name)
-    decompression_handler = Map.fetch!(options, :decompression_handler)
+    gcode_handler = Map.fetch!(options, :gcode_handler)
+    gcode_handler_data = %{name: name}
 
     data = %Gcode.Machine.State{
       name: name,
-      pubsub_name: pubsub_name,
-      tracker_name: tracker_name,
-      decompression_handler: decompression_handler,
+      gcode_handler: gcode_handler,
+      gcode_handler_data: gcode_handler_data,
       uart_pid: nil,
       uart_options: Map.take(options, [:port, :speed, :autoconnect]),
       uart_ports: %{},
@@ -48,9 +46,9 @@ defmodule Gcode.Machine do
         {:connecting, [{:next_event, :internal, :connect}]}
       end
 
-    Phoenix.Tracker.track(tracker_name, self(), "printers", name, %{printer_state: state})
+    {:ok, gcode_handler_data} = apply(gcode_handler, :init, [state, gcode_handler_data])
 
-    {:ok, state, data, actions}
+    {:ok, state, %{data | gcode_handler_data: gcode_handler_data}, actions}
   end
 
   def send_command(command) do
@@ -63,13 +61,9 @@ defmodule Gcode.Machine do
     GenStateMachine.call(__MODULE__, {:print, compressed_gcode})
   end
 
-  def handle_event(:enter, old_state, new_state, %{name: name, tracker_name: tracker_name})
-      when old_state !== new_state do
-    Phoenix.Tracker.update(tracker_name, self(), "printers", name, fn meta ->
-      Map.put(meta, :printer_state, new_state)
-    end)
-
-    :keep_state_and_data
+  def handle_event(:enter, old_state, new_state, data = %{gcode_handler: handler, gcode_handler_data: handler_data}) when old_state !== new_state do
+    {:ok, handler_data} = apply(handler, :handle_state, [old_state, new_state, handler_data])
+    {:keep_state, %{data | gcode_handler_data: handler_data}}
   end
 
   def handle_event(:enter, _, _, _), do: :keep_state_and_data

@@ -27,11 +27,12 @@ defmodule Gcode.Machine.Analysing do
   end
 
   def estimate_print_time(
+        handler,
         gcode = %{command_count: count, commands: commands},
         existing_x,
         existing_y,
         existing_z,
-        _existing_speed,
+        existing_speed,
         acc_duration,
         index
       )
@@ -49,36 +50,36 @@ defmodule Gcode.Machine.Analysing do
         _ -> {0, 0, 0, 0}
       end
 
-    deltaX = if x < existing_x, do: 0, else: x - existing_x
-    deltaY = if y < existing_y, do: 0, else: y - existing_y
-    deltaZ = if z < existing_z, do: 0, else: z - existing_z
+    {:ok, new_duration} = apply(handler, :handle_print_time_estimate, [{x,y,z}, {existing_x, existing_y, existing_z}, speed, existing_speed])
 
-    new_duration = calculate_time(deltaX, deltaY, deltaZ, speed)
+    # deltaX = if x < existing_x, do: 0, else: x - existing_x
+    # deltaY = if y < existing_y, do: 0, else: y - existing_y
+    # deltaZ = if z < existing_z, do: 0, else: z - existing_z
+
+    # new_duration = calculate_time(deltaX, deltaY, deltaZ, speed)
 
     # IO.puts(" #{inspect acc_duration}, new duration: #{inspect new_duration}, I: #{inspect instruction}, Coords: #{inspect coords}, params: #{inspect parameters}")
 
-    estimate_print_time(gcode, x, y, z, speed, acc_duration + new_duration, index + 1)
+    estimate_print_time(handler, gcode, x, y, z, speed, acc_duration + new_duration, index + 1)
   end
 
-  def estimate_print_time(%{}, _, _, _, _, duration, _), do: duration
+  def estimate_print_time(_, %{}, _, _, _, _, duration, _), do: duration
 
   def analysing(
         :internal,
         :analyse,
-        data = %{name: name, tracker_name: tracker_name, gcode: gcode}
+        data = %{gcode: gcode, gcode_handler: handler, gcode_handler_data: gcode_handler_data}
       ) do
-    duration = estimate_print_time(gcode, 0, 0, 0, 0, 0, 0)
+    duration = estimate_print_time(handler, gcode, 0, 0, 0, 0, 0, 0)
     IO.puts("Duration: #{inspect(duration)}")
     IO.puts("Duration Minutes: #{inspect(duration / 60)}")
     IO.puts("Duration hours: #{inspect(duration / 60 / 60)}")
 
-    Phoenix.Tracker.update(tracker_name, self(), "printers", name, fn meta ->
-      Map.put(meta, :estimated_print_time_seconds, duration)
-    end)
 
-    # :keep_state_and_data
-    {:next_state, :printing, %{data | gcode: %{gcode | estimated_print_time: duration}},
-     {:next_event, :internal, :print}}
+    apply(handler, :handle_message, [{:estimated_print_time_seconds, duration}, gcode_handler_data])
+
+
+    {:next_state, :printing, %{data | gcode: %{gcode | estimated_print_time: duration}}, {:next_event, :internal, :print}}
   end
 
   def analysing(type, event, data), do: Gcode.Machine.Error.unknown(__MODULE__, type, event, data)
