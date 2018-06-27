@@ -35,6 +35,16 @@ defmodule Gcode.Machine.Parsing do
 
   def extract_commands([], acc, count), do: {count, acc}
 
+  def extract_command_list([]), do: {:ok, []}
+  def extract_command_list(command_array) do
+    with {_, command_map} <- Gcode.Machine.Parsing.extract_commands(command_array, %{}, 0) do
+      {:ok, Map.values(command_map)}
+    else
+      {:error, error} -> {:error, error}
+      _ -> {:error, :error_parsing_commands}
+    end
+  end
+
   def parsing(:internal, {:parse, sanitised_gcode}, data) do
     {count, commands} = extract_commands(sanitised_gcode, %{}, 0)
 

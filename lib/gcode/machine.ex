@@ -61,8 +61,8 @@ defmodule Gcode.Machine do
     GenStateMachine.call(__MODULE__, {:print, compressed_gcode})
   end
 
-  def stop() do
-    GenStateMachine.cast(__MODULE__, :stop)
+  def cancel() do
+    GenStateMachine.cast(__MODULE__, :cancel)
   end
 
   def handle_event(:enter, old_state, new_state, data = %{gcode_handler: handler, gcode_handler_data: handler_data}) when old_state !== new_state do
@@ -72,9 +72,9 @@ defmodule Gcode.Machine do
 
   def handle_event(:enter, _, _, _), do: :keep_state_and_data
 
-  def handle_event({:call, from}, :stop, state, _data) when state != :printing do
+  def handle_event({:call, from}, :cancel, state, _data) when state != :printing do
     Logger.warn(
-      "#{inspect(__MODULE__)} - Stop command ignored, can only send the stop command when the state is printing",
+      "#{inspect(__MODULE__)} - Cancel command ignored, can only send the cancel command when the state is printing",
       printer_state: state
     )
 
@@ -103,6 +103,8 @@ defmodule Gcode.Machine do
   end
 
   def handle_event(type, event, state, data) do
+    Logger.debug("State: #{inspect type}, #{inspect event}, #{inspect state}, #{inspect data}")
+
     apply(__MODULE__, state, [type, event, data])
   end
 

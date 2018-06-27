@@ -50,36 +50,28 @@ defmodule Gcode.Machine.Analysing do
         _ -> {0, 0, 0, 0}
       end
 
-    {:ok, new_duration} = apply(handler, :handle_print_time_estimate, [{x,y,z}, {existing_x, existing_y, existing_z}, speed, existing_speed])
-
-    # deltaX = if x < existing_x, do: 0, else: x - existing_x
-    # deltaY = if y < existing_y, do: 0, else: y - existing_y
-    # deltaZ = if z < existing_z, do: 0, else: z - existing_z
-
-    # new_duration = calculate_time(deltaX, deltaY, deltaZ, speed)
-
-    # IO.puts(" #{inspect acc_duration}, new duration: #{inspect new_duration}, I: #{inspect instruction}, Coords: #{inspect coords}, params: #{inspect parameters}")
+    {:ok, new_duration} = apply(handler, :handle_print_time_estimate, [{existing_x, existing_y, existing_z}, existing_speed, {x,y,z}, speed])
 
     estimate_print_time(handler, gcode, x, y, z, speed, acc_duration + new_duration, index + 1)
   end
 
   def estimate_print_time(_, %{}, _, _, _, _, duration, _), do: duration
 
-  def analysing(
-        :internal,
-        :analyse,
-        data = %{gcode: gcode, gcode_handler: handler, gcode_handler_data: gcode_handler_data}
-      ) do
+  def analysing(:internal, :analyse, data = %{gcode: gcode, gcode_handler: handler, gcode_handler_data: gcode_handler_data}) do
     duration = estimate_print_time(handler, gcode, 0, 0, 0, 0, 0, 0)
-    IO.puts("Duration: #{inspect(duration)}")
-    IO.puts("Duration Minutes: #{inspect(duration / 60)}")
-    IO.puts("Duration hours: #{inspect(duration / 60 / 60)}")
 
-
-    apply(handler, :handle_message, [{:estimated_print_time_seconds, duration}, gcode_handler_data])
-
-
-    {:next_state, :printing, %{data | gcode: %{gcode | estimated_print_time: duration}}, {:next_event, :internal, :print}}
+    with {:ok, gcode_handler_data} <- apply(handler, :handle_message, [{:estimated_print_time_seconds, duration}, gcode_handler_data]),
+         {:ok, command_list, gcode_handler_data} <- apply(handler, :handle_print_start, [gcode_handler_data]) do
+      with {:ok, commands} <- Gcode.Machine.Parsing.extract_command_list(command_list) do
+        {:next_state, :printing, %{data | gcode: %{gcode | estimated_print_time: duration}, gcode_handler_data: gcode_handler_data, extra_commands: commands}, {:next_event, :internal, :print}}
+      else
+        _ ->
+          {:next_state, :printing, %{data | gcode: %{gcode | estimated_print_time: duration}, gcode_handler_data: gcode_handler_data}, {:next_event, :internal, :print}}
+      end
+    else
+      {:error, error} -> {:next_state, :error, %{data | error: error}}
+      error -> {:next_state, :error, %{data | error: error}}
+    end
   end
 
   def analysing(type, event, data), do: Gcode.Machine.Error.unknown(__MODULE__, type, event, data)
