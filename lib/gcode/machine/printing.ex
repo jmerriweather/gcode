@@ -60,10 +60,10 @@ defmodule Gcode.Machine.Printing do
 
   def printing(:internal, :print, data = %{uart_pid: pid, gcode_handler: handler, gcode_handler_data: handler_data, gcode: gcode = %{command_index: index, command_count: count, commands: commands}}) when index < count do
     with current_command <- Map.fetch!(commands, index),
-         {:ok, new_command = %{raw: raw_command}, handler_data} <- apply(handler, :handle_print_step, [current_command, handler_data]),
+         {:ok, %{raw: raw_command}, handler_data} <- apply(handler, :handle_print_step, [current_command, handler_data]),
          {:ok, handler_data} <- process_gcode(pid, handler, handler_data, index, count, raw_command) do
       Logger.warn("Next Command #{inspect index + 1} of #{inspect count}")
-      {:keep_state, %{data | gcode: %{gcode | commands: Map.put(commands, index, new_command), command_index: index + 1}, gcode_handler_data: handler_data}}
+      {:keep_state, %{data | gcode: %{gcode | command_index: index + 1}, gcode_handler_data: handler_data}}
     else
       {:skip, handler_data} ->
         Logger.warn("Skipping Command #{inspect index} of #{inspect count}")
@@ -160,15 +160,16 @@ defmodule Gcode.Machine.Printing do
   end
 
   def printing(:info, {:nerves_uart, _port, "ok" <> command}, data = %{gcode_handler: handler, gcode_handler_data: handler_data}) do
+    Logger.error("D")
     {:ok, handler_data} = handle_response(handler, handler_data, String.trim(command))
     {:keep_state, %{data | gcode_handler_data: handler_data}, {:next_event, :internal, :check_command}}
   end
 
   def printing(:info, {:nerves_uart, _port, status}, data = %{gcode_handler: handler, gcode_handler_data: handler_data}) do
     Logger.error("B")
-    if String.contains?(status, "ok") do
+    if String.contains?(status, "ok ") do
       {:ok, handler_data} =
-        case String.split(status, "ok", trim: true) do
+        case String.split(status, "ok ", trim: true) do
           [command | []] -> handle_response(handler, handler_data, command)
           [_ | command] -> handle_response(handler, handler_data, command)
           [] -> handle_response(handler, handler_data, "OK")
