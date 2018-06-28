@@ -7,9 +7,9 @@ defmodule Gcode.Machine.Connected do
   def connected(:info, {:nerves_uart, port, status}, data),
     do: Gcode.Machine.Printing.printing(:info, {:nerves_uart, port, status}, data)
 
-  def connected({:call, from}, {:print, compressed_gcode}, data) do
+  def connected({:call, from}, {:print, filename, compressed_gcode}, data) do
     {:next_state, :decompressing, data,
-     [{:reply, from, :ok}, {:next_event, :internal, {:decompress, compressed_gcode}}]}
+     [{:reply, from, :ok}, {:next_event, :internal, {:decompress, filename, compressed_gcode}}]}
   end
 
   def connected(:cast, {:command, command}, data = %{extra_commands: extra_commands}) do

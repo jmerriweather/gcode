@@ -4,7 +4,7 @@ defmodule Gcode.Machine.Sanitising do
   """
   require Logger
 
-  def sanitising(:internal, {:sanitise, decompressed}, data) do
+  def sanitising(:internal, {:sanitise, filename, decompressed}, data) do
     sanitised_gcode =
       String.split(decompressed, ~r/\R/)
       # remove lines starting with a comment
@@ -18,7 +18,7 @@ defmodule Gcode.Machine.Sanitising do
       # make stream into a list
       |> Enum.to_list()
 
-    {:next_state, :parsing, data, [{:next_event, :internal, {:parse, sanitised_gcode}}]}
+    {:next_state, :parsing, data, [{:next_event, :internal, {:parse, filename, sanitised_gcode}}]}
   end
 
   def sanitising(type, event, data),

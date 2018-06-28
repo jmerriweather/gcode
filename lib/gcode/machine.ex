@@ -57,8 +57,8 @@ defmodule Gcode.Machine do
     end
   end
 
-  def print(compressed_gcode) do
-    GenStateMachine.call(__MODULE__, {:print, compressed_gcode})
+  def print(filename, compressed_gcode) do
+    GenStateMachine.call(__MODULE__, {:print, filename, compressed_gcode})
   end
 
   def cancel() do
@@ -81,7 +81,7 @@ defmodule Gcode.Machine do
     {:keep_state_and_data, {:reply, from, {:error, {:printer_busy, state}}}}
   end
 
-  def handle_event({:call, from}, {:print, _}, state, _data) when state != :connected do
+  def handle_event({:call, from}, {:print, _, _}, state, _data) when state != :connected do
     Logger.warn(
       "#{inspect(__MODULE__)} - Print command ignored, can only send the print command when the state is connected",
       printer_state: state
@@ -103,7 +103,7 @@ defmodule Gcode.Machine do
   end
 
   def handle_event(type, event, state, data) do
-    Logger.debug("State: #{inspect type}, #{inspect event}, #{inspect state}, #{inspect data}")
+    Logger.debug("State: #{inspect type}, #{inspect event}, #{inspect state}")
 
     apply(__MODULE__, state, [type, event, data])
   end

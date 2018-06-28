@@ -36,20 +36,20 @@ defmodule Gcode.Handler do
   Allows you to compare the last command with the current command and change the command before it is executed
 
   ```elixir
-  def handle_print_step(_, current_command = %{parameters: %{"Z" => current_z}}, data = %{last_z: last_z}) when current_z > last_z do
+  def handle_print_step(current_command = %{parameters: %{"Z" => current_z}}, data = %{last_z: last_z}) when current_z > last_z do
 
     # take picture when the Z hight changes
     Logger.info("TAKE PICTURE")
 
-    {:ok, current_command, data}
+    {:ok, current_command, %{data | last_z: current_z}
   end
 
-  def handle_print_step(_previous_command, current_command, data) do
+  def handle_print_step(current_command, data) do
     {:ok, current_command, data}
   end
   ```
   """
-  @callback handle_print_step(GcodeCommand.t | nil, GcodeCommand.t, map) :: {:ok, GcodeCommand.t, map} | {:skip, map} | {:error, term, map}
+  @callback handle_print_step(GcodeCommand.t, map) :: {:ok, GcodeCommand.t, map} | {:skip, map} | {:error, term, map}
 
 
   @doc """
@@ -114,7 +114,7 @@ defmodule Gcode.Handler do
       end
 
       @doc false
-      def handle_print_step(previous_command, current_command, data) do
+      def handle_print_step(current_command, data) do
         {:ok, current_command, data}
       end
 
@@ -126,18 +126,22 @@ defmodule Gcode.Handler do
       @doc false
       def handle_cancel_print(index, count, data) do
         commands = [
-          # retract
-          "G1 E-1 F300",
-          # turn off hot end
+          # extruder heater off
           "M104 S0",
-          # turn off heated bed
+          # heated bed heater off (if you have it)
           "M140 S0",
-          # turn off fan
-          "M106 S0",
-          # Home X and Y axis
+          # relative positioning
+          "G91",
+          # retract the filament a bit before lifting the nozzle, to release some of the pressure
+          "G1 E-1 F300",
+          # move Z up a bit and retract filament even more
+          "G1 Z+0.5 E-5 X-20 Y-20 F4200",
+          # move X/Y to min endstops, so the head is out of the way
           "G28 X0 Y0",
-          # Disable stepper motors
-          "M18"
+          # steppers off
+          "M84",
+          # absolute positioning
+          "G90"
         ]
         {:ok, commands, data}
       end

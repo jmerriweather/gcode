@@ -45,10 +45,10 @@ defmodule Gcode.Machine.Parsing do
     end
   end
 
-  def parsing(:internal, {:parse, sanitised_gcode}, data) do
+  def parsing(:internal, {:parse, filename, sanitised_gcode}, data) do
     {count, commands} = extract_commands(sanitised_gcode, %{}, 0)
 
-    {:next_state, :analysing, %{data | gcode: %Gcode{commands: commands, command_count: count}},
+    {:next_state, :analysing, %{data | gcode: %Gcode{filename: filename, commands: commands, command_count: count}},
      [{:next_event, :internal, :analyse}]}
   end
 
