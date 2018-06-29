@@ -1,11 +1,11 @@
 defmodule Gcode.Handler do
-
   @callback init(atom, map) :: {:ok, map}
 
   @doc """
   Handle decompression.
   """
-  @callback handle_decompression(binary, map) :: {:ok, String.t, map} | {:skip, map} | {:error, term, map}
+  @callback handle_decompression(binary, map) ::
+              {:ok, String.t(), map} | {:skip, map} | {:error, term, map}
 
   @doc """
   Allows you to send commands before the print has begun printing.
@@ -17,7 +17,7 @@ defmodule Gcode.Handler do
   end
   ```
   """
-  @callback handle_print_start(map) :: {:ok, [String.t], map} | {:error, term, map}
+  @callback handle_print_start(map) :: {:ok, [String.t()], map} | {:error, term, map}
 
   @doc """
   Allows you to send commands after the print has finished.
@@ -29,8 +29,7 @@ defmodule Gcode.Handler do
   end
   ```
   """
-  @callback handle_print_stop(map) :: {:ok, [String.t], map} | {:error, term, map}
-
+  @callback handle_print_stop(map) :: {:ok, [String.t()], map} | {:error, term, map}
 
   @doc """
   Allows you to compare the last command with the current command and change the command before it is executed
@@ -49,8 +48,8 @@ defmodule Gcode.Handler do
   end
   ```
   """
-  @callback handle_print_step(GcodeCommand.t, map) :: {:ok, GcodeCommand.t, map} | {:skip, map} | {:error, term, map}
-
+  @callback handle_print_step(GcodeCommand.t(), map) ::
+              {:ok, GcodeCommand.t(), map} | {:skip, map} | {:error, term, map}
 
   @doc """
   Handle what commands are sent when cancel print is executed
@@ -62,7 +61,8 @@ defmodule Gcode.Handler do
   end
   ```
   """
-  @callback handle_cancel_print(number, number, map) :: {:ok, [String.t], map} | {:error, term, map}
+  @callback handle_cancel_print(number, number, map) ::
+              {:ok, [String.t()], map} | {:error, term, map}
 
   @doc """
   This function is called when the state of the Gcode State Machine has changed
@@ -90,10 +90,14 @@ defmodule Gcode.Handler do
   end
   ```
   """
-  @callback handle_print_time_estimate({number, number, number}, number | nil, {number, number, number}, number | nil) :: {:ok, number} | {:error, term}
+  @callback handle_print_time_estimate(
+              {number, number, number},
+              number | nil,
+              {number, number, number},
+              number | nil
+            ) :: {:ok, number} | {:error, term}
 
-
-      @doc false
+  @doc false
   defmacro __using__(_) do
     quote location: :keep do
       @behaviour Gcode.Handler
@@ -130,6 +134,8 @@ defmodule Gcode.Handler do
           "M104 S0",
           # heated bed heater off (if you have it)
           "M140 S0",
+          # turn fan off
+          "M106 S0",
           # relative positioning
           "G91",
           # retract the filament a bit before lifting the nozzle, to release some of the pressure
@@ -143,6 +149,7 @@ defmodule Gcode.Handler do
           # absolute positioning
           "G90"
         ]
+
         {:ok, commands, data}
       end
 
@@ -157,7 +164,12 @@ defmodule Gcode.Handler do
       end
 
       @doc false
-      def handle_print_time_estimate({previous_x, previous_y, previous_z}, _last_known_speed, {current_x, current_y, current_z}, current_speed) do
+      def handle_print_time_estimate(
+            {previous_x, previous_y, previous_z},
+            _last_known_speed,
+            {current_x, current_y, current_z},
+            current_speed
+          ) do
         deltaX = if current_x < previous_x, do: 0, else: current_x - previous_x
         deltaY = if current_y < previous_y, do: 0, else: current_y - previous_y
         deltaZ = if current_z < previous_z, do: 0, else: current_z - previous_z
@@ -166,6 +178,7 @@ defmodule Gcode.Handler do
       end
 
       defp calculate_time(0, 0, 0, 0), do: 0
+
       defp calculate_time(x, y, _z, speed) do
         mmPerSecond =
           if speed > 0 do

@@ -65,7 +65,13 @@ defmodule Gcode.Machine do
     GenStateMachine.cast(__MODULE__, :cancel)
   end
 
-  def handle_event(:enter, old_state, new_state, data = %{gcode_handler: handler, gcode_handler_data: handler_data}) when old_state !== new_state do
+  def handle_event(
+        :enter,
+        old_state,
+        new_state,
+        data = %{gcode_handler: handler, gcode_handler_data: handler_data}
+      )
+      when old_state !== new_state do
     {:ok, handler_data} = apply(handler, :handle_state, [old_state, new_state, handler_data])
     {:keep_state, %{data | gcode_handler_data: handler_data}}
   end
@@ -103,7 +109,7 @@ defmodule Gcode.Machine do
   end
 
   def handle_event(type, event, state, data) do
-    Logger.info("State: #{inspect type}, #{inspect event}, #{inspect state}")
+    Logger.info("State: #{inspect(type)}, #{inspect(event)}, #{inspect(state)}")
 
     apply(__MODULE__, state, [type, event, data])
   end

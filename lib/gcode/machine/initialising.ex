@@ -24,16 +24,28 @@ defmodule Gcode.Machine.Initialising do
       else
         [{port_name, details}] = first_port
 
-
         {:ok, gcode_handler_data} =
           with %{description: description} <- details do
-            apply(handler, :handle_message, [{:status, "Found device on #{inspect(port_name)} with description #{inspect(description)}"}, gcode_handler_data])
+            apply(handler, :handle_message, [
+              {:status,
+               "Found device on #{inspect(port_name)} with description #{inspect(description)}"},
+              gcode_handler_data
+            ])
           else
             _ ->
-              apply(handler, :handle_message, [{:status, "Found device on #{inspect(port_name)}"}, gcode_handler_data])
+              apply(handler, :handle_message, [
+                {:status, "Found device on #{inspect(port_name)}"},
+                gcode_handler_data
+              ])
           end
 
-        {:next_state, :connecting, %{data | uart_ports: port_info, uart_options: Map.put(options, :port, port_name), gcode_handler_data: gcode_handler_data}, {:next_event, :internal, :connect}}
+        {:next_state, :connecting,
+         %{
+           data
+           | uart_ports: port_info,
+             uart_options: Map.put(options, :port, port_name),
+             gcode_handler_data: gcode_handler_data
+         }, {:next_event, :internal, :connect}}
       end
     else
       {:keep_state, %{data | uart_ports: port_info}}

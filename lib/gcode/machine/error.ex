@@ -17,12 +17,19 @@ defmodule Gcode.Machine.Error do
 
     {:ok, gcode_handler_data} =
       if autoconnect do
-        apply(handler, :handle_message, [{:status, "Port disconnected, will attempt to connect to a new port in 5 seconds"}, gcode_handler_data])
+        apply(handler, :handle_message, [
+          {:status, "Port disconnected, will attempt to connect to a new port in 5 seconds"},
+          gcode_handler_data
+        ])
       else
-        apply(handler, :handle_message, [{:status, "Port disconnected, autoconnect is disabled"}, gcode_handler_data])
+        apply(handler, :handle_message, [
+          {:status, "Port disconnected, autoconnect is disabled"},
+          gcode_handler_data
+        ])
       end
 
-    {:next_state, :initialising, %{data | gcode_handler_data: gcode_handler_data}, {:state_timeout, 5000, :find_ports}}
+    {:next_state, :initialising, %{data | gcode: nil, extra_commands: [], gcode_handler_data: gcode_handler_data},
+     {:state_timeout, 5000, :find_ports}}
   end
 
   def error(type, event, data) do
