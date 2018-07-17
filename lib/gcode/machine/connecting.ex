@@ -5,7 +5,7 @@ defmodule Gcode.Machine.Connecting do
   require Logger
 
   def connecting(:internal, :connect, data = %{uart_options: %{port: nil}}) do
-    {:next_state, :initialising, data, {:state_timeout, 5000, :find_ports}}
+    {:next_state, :detecting, data, {:state_timeout, 5000, :find_ports}}
   end
 
   def connecting(

@@ -39,8 +39,8 @@ defmodule Gcode.Machine do
     # have we been passed in a static port to connect to?
     {state, actions} =
       if is_nil(Map.fetch!(options, :port)) do
-        # if not then enter the initialising state, attempt to locate available ports and optionally auto connect
-        {:initialising, [{:next_event, :internal, :find_ports}]}
+        # if not then enter the detecting state, attempt to locate available ports and optionally auto connect
+        {:detecting, [{:next_event, :internal, :find_ports}]}
       else
         # we have been given a port, enter connecting state with static port
         {:connecting, [{:next_event, :internal, :connect}]}
@@ -114,7 +114,7 @@ defmodule Gcode.Machine do
     apply(__MODULE__, state, [type, event, data])
   end
 
-  defdelegate initialising(type, event, data), to: Gcode.Machine.Initialising
+  defdelegate detecting(type, event, data), to: Gcode.Machine.Detecting
   defdelegate connecting(type, event, data), to: Gcode.Machine.Connecting
   defdelegate error(type, event, data), to: Gcode.Machine.Error
   defdelegate connected(type, event, data), to: Gcode.Machine.Connected

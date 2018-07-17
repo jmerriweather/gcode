@@ -28,7 +28,7 @@ defmodule Gcode.Machine.Error do
         ])
       end
 
-    {:next_state, :initialising, %{data | gcode: nil, extra_commands: [], gcode_handler_data: gcode_handler_data},
+    {:next_state, :detecting, %{data | gcode: nil, extra_commands: [], gcode_handler_data: gcode_handler_data},
      {:state_timeout, 5000, :find_ports}}
   end
 

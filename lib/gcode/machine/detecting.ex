@@ -1,6 +1,6 @@
-defmodule Gcode.Machine.Initialising do
+defmodule Gcode.Machine.Detecting do
   @moduledoc """
-  Functions for when we are in the initialising state
+  Functions for when we are in the detecting state
   """
   require Logger
 
@@ -52,14 +52,14 @@ defmodule Gcode.Machine.Initialising do
     end
   end
 
-  def initialising(:state_timeout, :find_ports, data) do
+  def detecting(:state_timeout, :find_ports, data) do
     attempt_finding_ports(data)
   end
 
-  def initialising(:internal, :find_ports, data) do
+  def detecting(:internal, :find_ports, data) do
     attempt_finding_ports(data)
   end
 
-  def initialising(type, event, data),
+  def detecting(type, event, data),
     do: Gcode.Machine.Error.unknown(__MODULE__, type, event, data)
 end
