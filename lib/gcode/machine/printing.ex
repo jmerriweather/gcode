@@ -55,8 +55,8 @@ defmodule Gcode.Machine.Printing do
           gcode: %{command_index: index, command_count: count}
         }
       ) do
-    with {:ok, command_list, handler_data} <-
-           apply(handler, :handle_cancel_print, [index, count, handler_data]),
+
+    with {:ok, command_list, handler_data} <- apply(handler, :handle_cancel_print, [index, count, handler_data]),
          {:ok, commands} <- Gcode.Machine.Parsing.extract_command_list(command_list) do
       {:keep_state,
        %{data | gcode: nil, extra_commands: commands, gcode_handler_data: handler_data}}
@@ -86,7 +86,7 @@ defmodule Gcode.Machine.Printing do
     index = with %{gcode: gcode} when not is_nil(gcode) <- data, do: Map.get(gcode, :command_index), else: (_ -> nil)
     count= with %{gcode: gcode} when not is_nil(gcode) <- data, do: Map.get(gcode, :command_count), else: (_ -> nil)
 
-    Logger.error("PRINTING, index: #{inspect index}, count: #{inspect count}")
+    Logger.debug("PRINTING, index: #{inspect index}, count: #{inspect count}")
     with current_command <- Map.fetch!(commands, index),
          {:ok, %{raw: raw_command}, handler_data} <-
            apply(handler, :handle_print_step, [current_command, handler_data]),
@@ -115,7 +115,7 @@ defmodule Gcode.Machine.Printing do
     index = with %{gcode: gcode} when not is_nil(gcode) <- data, do: Map.get(gcode, :command_index), else: (_ -> nil)
     count= with %{gcode: gcode} when not is_nil(gcode) <- data, do: Map.get(gcode, :command_count), else: (_ -> nil)
 
-    Logger.error("FOUND NOTHIGN TO PRINT, index: #{inspect index}, count: #{inspect count}")
+    Logger.debug("FOUND NOTHIGN TO PRINT, index: #{inspect index}, count: #{inspect count}")
     {:next_state, :connected, data}
   end
 
@@ -133,7 +133,7 @@ defmodule Gcode.Machine.Printing do
     index = with %{gcode: gcode} when not is_nil(gcode) <- data, do: Map.get(gcode, :command_index), else: (_ -> nil)
     count= with %{gcode: gcode} when not is_nil(gcode) <- data, do: Map.get(gcode, :command_count), else: (_ -> nil)
 
-    Logger.error("CHECK COMMAND A, index: #{inspect index}, count: #{inspect count}")
+    Logger.debug("CHECK COMMAND A, index: #{inspect index}, count: #{inspect count}")
 
     case process_command(pid, handler, handler_data, command) do
       {:ok, :print_finished, handler_data} ->
@@ -162,7 +162,7 @@ defmodule Gcode.Machine.Printing do
     index = with %{gcode: gcode} when not is_nil(gcode) <- data, do: Map.get(gcode, :command_index), else: (_ -> nil)
     count= with %{gcode: gcode} when not is_nil(gcode) <- data, do: Map.get(gcode, :command_count), else: (_ -> nil)
 
-    Logger.error("CHECK COMMAND B, index: #{inspect index}, count: #{inspect count}")
+    Logger.debug("CHECK COMMAND B, index: #{inspect index}, count: #{inspect count}")
     case process_command(pid, handler, handler_data, command) do
       {:ok, :print_finished, handler_data} ->
         {:next_state, :connected, %{data | gcode_handler_data: handler_data}}
@@ -180,7 +180,7 @@ defmodule Gcode.Machine.Printing do
     index = with %{gcode: gcode} when not is_nil(gcode) <- data, do: Map.get(gcode, :command_index), else: (_ -> nil)
     count= with %{gcode: gcode} when not is_nil(gcode) <- data, do: Map.get(gcode, :command_count), else: (_ -> nil)
 
-    Logger.error("CHECK COMMAND C, index: #{inspect index}, count: #{inspect count}")
+    Logger.debug("CHECK COMMAND C, index: #{inspect index}, count: #{inspect count}")
     {:keep_state_and_data, {:next_event, :internal, :print}}
   end
 
@@ -209,7 +209,7 @@ defmodule Gcode.Machine.Printing do
     index = with %{gcode: gcode} when not is_nil(gcode) <- data, do: Map.get(gcode, :command_index), else: (_ -> nil)
     count= with %{gcode: gcode} when not is_nil(gcode) <- data, do: Map.get(gcode, :command_count), else: (_ -> nil)
 
-    Logger.error("MORE TO PRINT, index: #{inspect index}, count: #{inspect count}")
+    Logger.debug("MORE TO PRINT, index: #{inspect index}, count: #{inspect count}")
     {:ok, handler_data} = handle_response(handler, handler_data, String.trim(command))
 
     {:keep_state, %{data | gcode_handler_data: handler_data},
@@ -229,7 +229,7 @@ defmodule Gcode.Machine.Printing do
     index = with %{gcode: gcode} when not is_nil(gcode) <- data, do: Map.get(gcode, :command_index), else: (_ -> nil)
     count= with %{gcode: gcode} when not is_nil(gcode) <- data, do: Map.get(gcode, :command_count), else: (_ -> nil)
 
-    Logger.error("FINISHED PRINT, index: #{inspect index}, count: #{inspect count}")
+    Logger.debug("FINISHED PRINT, index: #{inspect index}, count: #{inspect count}")
     {:ok, handler_data} = handle_response(handler, handler_data, String.trim(command))
 
     with {:ok, command_list, handler_data} <- apply(handler, :handle_print_stop, [handler_data]),
@@ -255,7 +255,7 @@ defmodule Gcode.Machine.Printing do
         data = %{gcode: nil, extra_commands: [], gcode_handler: handler, gcode_handler_data: handler_data}
       ) do
 
-    Logger.error("Message without command or gcode")
+    Logger.debug("Message without command or gcode")
     {:ok, handler_data} = handle_response(handler, handler_data, String.trim(command))
 
     {:next_state, :connected, %{data | gcode_handler_data: handler_data}}
@@ -270,7 +270,7 @@ defmodule Gcode.Machine.Printing do
     index = with %{gcode: gcode} when not is_nil(gcode) <- data, do: Map.get(gcode, :command_index), else: (_ -> nil)
     count= with %{gcode: gcode} when not is_nil(gcode) <- data, do: Map.get(gcode, :command_count), else: (_ -> nil)
 
-    Logger.error("COMMAND, index: #{inspect index}, count: #{inspect count}")
+    Logger.debug("COMMAND, index: #{inspect index}, count: #{inspect count}")
     {:ok, handler_data} = handle_response(handler, handler_data, String.trim(command))
 
     {:keep_state, %{data | gcode_handler_data: handler_data},
@@ -285,7 +285,7 @@ defmodule Gcode.Machine.Printing do
     index = with %{gcode: gcode} when not is_nil(gcode) <- data, do: Map.get(gcode, :command_index), else: (_ -> nil)
     count= with %{gcode: gcode} when not is_nil(gcode) <- data, do: Map.get(gcode, :command_count), else: (_ -> nil)
 
-    Logger.error("STATUS MESSAGE, index: #{inspect index}, count: #{inspect count}")
+    Logger.debug("STATUS MESSAGE, index: #{inspect index}, count: #{inspect count}")
 
     # if String.contains?(status, "ok ") do
     #   {:ok, handler_data} =

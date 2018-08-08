@@ -109,7 +109,7 @@ defmodule Gcode.Machine do
   end
 
   def handle_event(type, event, state, data) do
-    Logger.info(fn -> "State: #{inspect(type)}, #{inspect(event)}, #{inspect(state)}" end)
+    Logger.debug(fn -> "State: #{inspect(type)}, #{inspect(event)}, #{inspect(state)}" end)
 
     apply(__MODULE__, state, [type, event, data])
   end
