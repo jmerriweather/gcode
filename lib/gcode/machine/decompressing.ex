@@ -22,7 +22,7 @@ defmodule Gcode.Machine.Decompressing do
 
       # handler has an error
       {:error, message, handler_data} ->
-        {:next_state, :error, %{data | error: message, gcode_handler_data: handler_data}}
+        {:next_state, :error, %{data | error: message, gcode_handler_data: handler_data}, [{:state_timeout, 1000, :ready_for_print}]}
     end
   end
 

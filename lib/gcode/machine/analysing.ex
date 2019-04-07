@@ -74,13 +74,11 @@ defmodule Gcode.Machine.Analysing do
       ) do
     duration = estimate_print_time(handler, gcode, 0, 0, 0, 0, 0, 0)
 
-    with {:ok, gcode_handler_data} <-
-           apply(handler, :handle_message, [
+    with {:ok, gcode_handler_data} <- apply(handler, :handle_message, [
              {:estimated_print_time_seconds, duration},
              gcode_handler_data
            ]),
-         {:ok, command_list, gcode_handler_data} <-
-           apply(handler, :handle_print_start, [Map.put(gcode_handler_data, :filename, filename)]) do
+         {:ok, command_list, gcode_handler_data} <- apply(handler, :handle_print_start, [Map.put(gcode_handler_data, :filename, filename)]) do
       with {:ok, commands} <- Gcode.Machine.Parsing.extract_command_list(command_list) do
         {:next_state, :printing,
          %{

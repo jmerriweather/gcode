@@ -32,6 +32,10 @@ defmodule Gcode.Machine.Error do
      {:state_timeout, 5000, :find_ports}}
   end
 
+  def error(:state_timeout, :ready_for_print, data) do
+    {:next_state, :connected, %{data | gcode: nil, extra_commands: []}}
+  end
+
   def error(type, event, data) do
     Logger.warn(
       "#{inspect(__MODULE__)} - Unhandled event while in Error state, type: #{inspect(type)}, name: #{

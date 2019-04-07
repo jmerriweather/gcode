@@ -14,7 +14,11 @@ defmodule Gcode.Machine.Parsing do
   end
 
   defp extract_parameters([<<letter::utf8, value::binary>> | rest], acc) do
-    extract_parameters(rest, Map.put(acc, <<letter>>, parse_float(value)))
+    with {result, _} <- Float.parse(value) do
+      extract_parameters(rest, Map.put(acc, <<letter>>, result))
+    else
+      _ -> extract_parameters(rest, Map.put(acc, <<letter>>, value))
+    end
   end
 
   defp extract_parameters([], acc), do: acc
